@@ -1,26 +1,78 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../models/product.dart';
+import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/products_viewmodel.dart';
 
-class ProductDetailView extends StatelessWidget {
+class ProductDetailView extends StatefulWidget {
   const ProductDetailView({super.key, required this.product});
 
   final Product product;
 
   @override
+  State<ProductDetailView> createState() => _ProductDetailViewState();
+}
+
+class _ProductDetailViewState extends State<ProductDetailView> {
+  late Product _product;
+  bool _isUploading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _product = widget.product;
+  }
+
+  Future<void> _uploadPhoto(BuildContext context) async {
+    if (_isUploading) return;
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+    );
+    if (picked == null) return;
+
+    setState(() => _isUploading = true);
+    final vm = context.read<ProductsViewModel>();
+    final updated = await vm.uploadProductPhoto(
+      product: _product,
+      filePath: picked.path,
+    );
+    if (!mounted) return;
+    setState(() => _isUploading = false);
+
+    if (updated != null) {
+      setState(() => _product = updated);
+      vm.replaceProduct(updated);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Imagen actualizada.')),
+      );
+      return;
+    }
+
+    final message = vm.lastUploadError ?? 'No se pudo subir la imagen.';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final imageUrl = context.read<ProductsViewModel>().resolveImageUrl(
-          product.fotoUrlWeb?.isNotEmpty == true
-              ? product.fotoUrlWeb
-              : product.fotoUrl,
+          _product.fotoUrlWeb?.isNotEmpty == true
+              ? _product.fotoUrlWeb
+              : _product.fotoUrl,
         );
+    final canUpload = context.select<AuthViewModel, bool>(
+      (auth) => auth.hasPermission('productos.update'),
+    );
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(product.nombre),
+        title: Text(_product.nombre),
       ),
       body: SafeArea(
         child: LayoutBuilder(
@@ -47,10 +99,10 @@ class ProductDetailView extends StatelessWidget {
                                   imageUrl,
                                   fit: BoxFit.cover,
                                   errorBuilder: (_, __, ___) =>
-                                      _ImageFallback(color: product.colorHex),
+                                      _ImageFallback(color: _product.colorHex),
                                 ),
                               )
-                            : _ImageFallback(color: product.colorHex),
+                            : _ImageFallback(color: _product.colorHex),
                       ),
                       Positioned(
                         right: 12,
@@ -61,7 +113,7 @@ class ProductDetailView extends StatelessWidget {
                             vertical: 4,
                           ),
                           child: Text(
-                            '\$${product.precio.toStringAsFixed(2)}',
+                            '\$${_product.precio.toStringAsFixed(2)}',
                             style: theme.textTheme.headlineSmall?.copyWith(
                                   fontWeight: FontWeight.w800,
                                   color: const Color(0xFF1B9CFF),
@@ -74,6 +126,40 @@ class ProductDetailView extends StatelessWidget {
                           ),
                         ),
                       ),
+                      if (canUpload)
+                        Positioned(
+                          right: 12,
+                          top: 12,
+                          child: Material(
+                            color: Colors.black.withOpacity(0.55),
+                            borderRadius: BorderRadius.circular(12),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(12),
+                              onTap: _isUploading
+                                  ? null
+                                  : () => _uploadPhoto(context),
+                              child: Padding(
+                                padding: const EdgeInsets.all(8),
+                                child: Icon(
+                                  Icons.photo_camera_outlined,
+                                  color: Colors.white.withOpacity(0.95),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      if (_isUploading)
+                        Positioned.fill(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -102,7 +188,7 @@ class ProductDetailView extends StatelessWidget {
                           controller: scrollController,
                           physics: const ClampingScrollPhysics(),
                           child: Text(
-                            product.nombre,
+                            _product.nombre,
                             style: titleStyle,
                           ),
                         ),
@@ -115,7 +201,7 @@ class ProductDetailView extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        product.codigo,
+                        _product.codigo,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodyMedium?.copyWith(
@@ -128,7 +214,7 @@ class ProductDetailView extends StatelessWidget {
                       child: Align(
                         alignment: Alignment.centerRight,
                         child: Text(
-                          product.brandNombre ?? '',
+                          _product.brandNombre ?? '',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.right,
@@ -142,7 +228,7 @@ class ProductDetailView extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 const SizedBox(height: 16),
-                if (product.stockBySucursal.isNotEmpty) ...[
+                if (_product.stockBySucursal.isNotEmpty) ...[
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -158,7 +244,7 @@ class ProductDetailView extends StatelessWidget {
                       ),
                       Expanded(
                         child: Column(
-                          children: product.stockBySucursal
+                          children: _product.stockBySucursal
                               .map(
                                 (entry) => Padding(
                                   padding:

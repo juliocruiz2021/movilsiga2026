@@ -2,13 +2,15 @@
 
 Proyecto: proyecto1
 Ubicacion: /Users/julioruiz/Desarrollo_Flutter/proyecto1
+API Laravel: apisiga (/Users/julioruiz/desarrollo_laravel/apisiga)
 Fecha inicio: 2026-02-08
-Objetivo actual: App Flutter con patron MVVM + Provider, login conectado a API Laravel (apisiga), catalogo de productos paginado con filtros y detalle con zoom de imagen y stock por sucursal.
+Objetivo actual: App Flutter con patron MVVM + Provider, login conectado a API Laravel (apisiga) usando seguridad por token y permisos/roles por modulo (como en Laravel web), catalogo de productos paginado con filtros y detalle con zoom de imagen y stock por sucursal.
 
 Estado actual:
 - Proyecto Flutter creado y dependencias configuradas (provider, http, google_fonts, shared_preferences, flutter_secure_storage, device_info_plus, uuid).
 - Estructura MVVM: lib/models, lib/views, lib/viewmodels.
-- Login con API real: POST /api/{empresa}/login usando token de empresa (Bearer) y device_name.
+- Login con API real: POST /api/{empresa}/login usando token de empresa (Bearer) y device_name. Autenticacion por token (Sanctum), no por sesiones.
+- Seguridad en ventanas/UI basada en permisos Laravel (slugs tipo productos.view, productos.update, etc.) por rol.
 - Configuracion persistente: ruta API, codigo empresa (minusculas), token empresa (seguro).
 - Token de usuario guardado en storage seguro y reutilizado para peticiones logeadas.
 - Pantalla de catalogo de productos con scroll infinito, filtros por categoria, busqueda y solo activos (activo=1).

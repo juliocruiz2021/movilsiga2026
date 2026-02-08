@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:uuid/uuid.dart';
 
 import '../models/api_config.dart';
 import 'auth_viewmodel.dart';
@@ -110,8 +109,13 @@ class LoginViewModel extends ChangeNotifier {
         final message = data['message'] as String? ?? 'Login correcto.';
         final token = data['token'] as String?;
         final tokenType = data['token_type'] as String?;
+        final user = data['user'];
+        final role = user is Map ? user['role']?.toString() : null;
         if (token != null && token.isNotEmpty) {
           await _auth?.saveToken(token: token, tokenType: tokenType);
+        }
+        if (role != null && role.isNotEmpty) {
+          await _auth?.saveRole(role);
         }
         _loginSuccess = true;
         notifyListeners();
@@ -138,20 +142,21 @@ class LoginViewModel extends ChangeNotifier {
     String deviceName,
   ) {
     final uri = config.buildUri('/${config.companyCode}/login');
-    // Sin logs en login (evitar datos sensibles).
+    final headers = <String, String>{
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $companyToken',
+      'X-Device-Name': deviceName,
+    };
+    final payload = {
+      'email': _email,
+      'password': _password,
+      'device_name': deviceName,
+    };
     return http.post(
       uri,
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $companyToken',
-        'X-Device-Name': deviceName,
-      },
-      body: jsonEncode({
-        'email': _email,
-        'password': _password,
-        'device_name': deviceName,
-      }),
+      headers: headers,
+      body: jsonEncode(payload),
     );
   }
 
@@ -164,47 +169,27 @@ class LoginViewModel extends ChangeNotifier {
       final info = await DeviceInfoPlugin().deviceInfo;
       final data = info.data;
       final name = _firstNonEmpty([
-        data['name'],
-        data['device'],
         data['model'],
+        data['device'],
+        data['name'],
+        data['brand'],
         data['computerName'],
         data['hostName'],
         data['hostname'],
-        data['brand'],
       ]);
-      final system = _firstNonEmpty([
-        data['systemName'],
-        data['platform'],
-        data['osRelease'],
-        data['version'],
-      ]);
-      final deviceId = await _getDeviceIdentifier();
-      final resolved = [system, name].where((v) => v.isNotEmpty).join('-');
-      final suffix = deviceId.isNotEmpty ? '-$deviceId' : '';
-      _deviceName =
-          resolved.isNotEmpty ? '$resolved$suffix' : 'flutter$suffix';
+      _deviceName = name.isNotEmpty ? name : 'flutter';
     } catch (_) {
-      final deviceId = await _getDeviceIdentifier();
-      _deviceName = deviceId.isNotEmpty ? 'flutter-$deviceId' : 'flutter';
+      _deviceName = 'flutter';
     }
 
     return _deviceName!;
   }
 
-  Future<String> _getDeviceIdentifier() async {
-    const key = 'device_installation_id';
-    final prefs = await SharedPreferences.getInstance();
-    final existing = prefs.getString(key);
-    if (existing != null && existing.isNotEmpty) {
-      return existing;
-    }
-    final generated = const Uuid().v4();
-    await prefs.setString(key, generated);
-    return generated;
-  }
-
   String _firstNonEmpty(List<Object?> values) {
     for (final value in values) {
+      if (value is Map || value is List) {
+        continue;
+      }
       final text = value?.toString().trim();
       if (text != null && text.isNotEmpty && text != 'null') {
         return text;
@@ -222,6 +207,7 @@ class LoginViewModel extends ChangeNotifier {
     } catch (_) {}
     return const {};
   }
+
 
   void _setLoading(bool value) {
     _isLoading = value;

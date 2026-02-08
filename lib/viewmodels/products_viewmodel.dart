@@ -23,6 +23,7 @@ class ProductsViewModel extends ChangeNotifier {
   bool _isLoadingMore = false;
   String? _errorMessage;
   String? _lastProductsResponse;
+  String? _lastUploadError;
   int _currentPage = 1;
   int _lastPage = 1;
   final int _perPage = 20;
@@ -38,6 +39,7 @@ class ProductsViewModel extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isLoadingMore => _isLoadingMore;
   String? get errorMessage => _errorMessage;
+  String? get lastUploadError => _lastUploadError;
   bool get hasMore => _currentPage < _lastPage;
   ProductViewMode get viewMode => _viewMode;
   String? get lastProductsResponse => _lastProductsResponse;
@@ -166,6 +168,13 @@ class ProductsViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void replaceProduct(Product updated) {
+    final index = _products.indexWhere((item) => item.id == updated.id);
+    if (index == -1) return;
+    _products[index] = updated;
+    notifyListeners();
+  }
+
   Future<void> _loadCategories() async {
     final config = _currentConfig();
     final auth = _auth;
@@ -266,6 +275,47 @@ class ProductsViewModel extends ChangeNotifier {
       'Accept': 'application/json',
       'Authorization': auth.authorizationHeader,
     };
+  }
+
+  Future<Product?> uploadProductPhoto({
+    required Product product,
+    required String filePath,
+  }) async {
+    _lastUploadError = null;
+    final config = _currentConfig();
+    final auth = _auth;
+    if (config == null || auth == null || auth.token.isEmpty) {
+      _lastUploadError = 'No hay sesion activa.';
+      return null;
+    }
+
+    final uri = config.buildUri(
+      '/${config.companyCode}/productos/${product.id}/foto',
+    );
+    try {
+      final request = http.MultipartRequest('POST', uri);
+      request.headers.addAll(_authHeaders(auth));
+      request.files.add(
+        await http.MultipartFile.fromPath('foto', filePath),
+      );
+      final response = await request.send();
+      final body = await response.stream.bytesToString();
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final data = _decodeJson(body);
+        final raw = data['product'];
+        if (raw is Map) {
+          return Product.fromJson(
+            raw.map((k, v) => MapEntry(k.toString(), v)),
+          );
+        }
+      }
+      final data = _decodeJson(body);
+      _lastUploadError =
+          data['message']?.toString() ?? 'No se pudo subir la imagen.';
+    } catch (_) {
+      _lastUploadError = 'No se pudo subir la imagen.';
+    }
+    return null;
   }
 
   Map<String, dynamic> _decodeJson(String body) {
