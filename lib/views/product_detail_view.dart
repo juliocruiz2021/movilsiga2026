@@ -12,103 +12,197 @@ class ProductDetailView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final imageUrl =
-        context.read<ProductsViewModel>().resolveImageUrl(product.fotoUrl);
+    final imageUrl = context.read<ProductsViewModel>().resolveImageUrl(
+          product.fotoUrlWeb?.isNotEmpty == true
+              ? product.fotoUrlWeb
+              : product.fotoUrl,
+        );
 
     return Scaffold(
       appBar: AppBar(
         title: Text(product.nombre),
-        leading: IconButton(
-          onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(Icons.arrow_back),
-        ),
       ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final imageHeight = constraints.maxHeight * 0.65;
-          return ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              SizedBox(
-                height: imageHeight,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: imageUrl.isNotEmpty
-                      ? InteractiveViewer(
-                          minScale: 1,
-                          maxScale: 4,
-                          child: Image.network(
-                            imageUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
-                                _ImageFallback(color: product.colorHex),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final availableHeight =
+                (constraints.maxHeight - 24).clamp(0, double.infinity);
+            final imageHeight = (availableHeight * 0.72)
+                .clamp(180.0, availableHeight)
+                .toDouble();
+            return ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                SizedBox(
+                  height: imageHeight,
+                  child: Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: imageUrl.isNotEmpty
+                            ? InteractiveViewer(
+                                minScale: 1,
+                                maxScale: 4,
+                                child: Image.network(
+                                  imageUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) =>
+                                      _ImageFallback(color: product.colorHex),
+                                ),
+                              )
+                            : _ImageFallback(color: product.colorHex),
+                      ),
+                      Positioned(
+                        right: 12,
+                        bottom: 12,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 4,
                           ),
-                        )
-                      : _ImageFallback(color: product.colorHex),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                product.nombre,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF0A2B3C),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Codigo: ${product.codigo}',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: const Color(0xFF4C6F8A),
-                ),
-              ),
-              if (product.categoryNombre != null &&
-                  product.categoryNombre!.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text(
-                    'Categoria: ${product.categoryNombre}',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: const Color(0xFF4C6F8A),
-                    ),
+                          child: Text(
+                            '\$${product.precio.toStringAsFixed(2)}',
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  color: const Color(0xFF1B9CFF),
+                                ) ??
+                                const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF1B9CFF),
+                                ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              const SizedBox(height: 16),
-          Text(
-            '\$${product.precio.toStringAsFixed(2)}',
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF1B9CFF),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Stock: ${product.stock.toStringAsFixed(0)}',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: const Color(0xFF4C6F8A),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 24),
-              SizedBox(
-                height: 48,
-                child: ElevatedButton.icon(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.arrow_back),
-                  label: const Text('Volver a productos'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1B9CFF),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    elevation: 0,
-                  ),
+                const SizedBox(height: 10),
+                Builder(
+                  builder: (context) {
+                    final titleStyle = theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF0A2B3C),
+                        ) ??
+                        const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0A2B3C),
+                        );
+                    final lineHeight =
+                        (titleStyle.fontSize ?? 20) * (titleStyle.height ?? 1.2);
+                    final maxHeight = lineHeight * 2;
+                    final scrollController = ScrollController();
+                    return SizedBox(
+                      height: maxHeight,
+                      child: Scrollbar(
+                        controller: scrollController,
+                        thumbVisibility: true,
+                        child: SingleChildScrollView(
+                          controller: scrollController,
+                          physics: const ClampingScrollPhysics(),
+                          child: Text(
+                            product.nombre,
+                            style: titleStyle,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
-              ),
-            ],
-          );
-        },
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        product.codigo,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: const Color(0xFF4C6F8A),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          product.brandNombre ?? '',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.right,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: const Color(0xFF4C6F8A),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                const SizedBox(height: 16),
+                if (product.stockBySucursal.isNotEmpty) ...[
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: 64,
+                        child: Text(
+                          'Stock:',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF0A2B3C),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Column(
+                          children: product.stockBySucursal
+                              .map(
+                                (entry) => Padding(
+                                  padding:
+                                      const EdgeInsets.only(bottom: 6),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          entry.nombre.isNotEmpty
+                                              ? entry.nombre
+                                              : entry.codigo,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: theme.textTheme.bodyMedium
+                                              ?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                            color: const Color(0xFF0A2B3C),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Text(
+                                        entry.stockTotal
+                                            .toStringAsFixed(0),
+                                        style: theme.textTheme.bodyMedium
+                                            ?.copyWith(
+                                          color: const Color(0xFF4C6F8A),
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            );
+          },
+        ),
       ),
     );
   }

@@ -8,8 +8,13 @@ class Product {
     required this.colorHex,
     this.categoryId,
     this.categoryNombre,
+    this.brandId,
+    this.brandNombre,
     this.fotoUrl,
+    this.fotoUrlWeb,
     this.fotoThumbUrl,
+    this.descripcion,
+    this.stockBySucursal = const [],
   });
 
   final int id;
@@ -20,8 +25,13 @@ class Product {
   final int colorHex;
   final int? categoryId;
   final String? categoryNombre;
+  final int? brandId;
+  final String? brandNombre;
   final String? fotoUrl;
+  final String? fotoUrlWeb;
   final String? fotoThumbUrl;
+  final String? descripcion;
+  final List<SucursalStock> stockBySucursal;
 
   factory Product.fromJson(Map<String, dynamic> json) {
     final priceRaw = json['precio'];
@@ -29,10 +39,24 @@ class Product {
         ? priceRaw.toDouble()
         : double.tryParse(priceRaw?.toString() ?? '') ?? 0;
     final category = json['category'] as Map<String, dynamic>?;
+    final brand = json['brand'] as Map<String, dynamic>?;
     final stockRaw = json['stock'];
     final stock = stockRaw is num
         ? stockRaw.toDouble()
         : double.tryParse(stockRaw?.toString() ?? '') ?? 0;
+    final descripcionRaw = json['descripcion'] ??
+        json['description'] ??
+        json['descripcion_corta'];
+    final sucursalesRaw = json['existencias_sucursales'];
+    final sucursales = <SucursalStock>[];
+    if (sucursalesRaw is List) {
+      for (final item in sucursalesRaw) {
+        if (item is Map) {
+          final mapped = item.map((k, v) => MapEntry(k.toString(), v));
+          sucursales.add(SucursalStock.fromJson(mapped));
+        }
+      }
+    }
     return Product(
       id: (json['id'] as num?)?.toInt() ?? 0,
       codigo: json['codigo']?.toString() ?? '',
@@ -42,8 +66,13 @@ class Product {
       colorHex: _colorFromId((json['id'] as num?)?.toInt() ?? 0),
       categoryId: (category?['id'] as num?)?.toInt(),
       categoryNombre: category?['nombre']?.toString(),
+      brandId: (brand?['id'] as num?)?.toInt(),
+      brandNombre: brand?['nombre']?.toString(),
       fotoUrl: json['foto_url']?.toString(),
+      fotoUrlWeb: json['foto_url_web']?.toString(),
       fotoThumbUrl: json['foto_thumb_url']?.toString(),
+      descripcion: descripcionRaw?.toString(),
+      stockBySucursal: sucursales,
     );
   }
 
@@ -63,5 +92,36 @@ class Product {
       0xFF99F6E4,
     ];
     return palette[id % palette.length];
+  }
+}
+
+class SucursalStock {
+  const SucursalStock({
+    required this.id,
+    required this.codigo,
+    required this.nombre,
+    required this.stockTotal,
+  });
+
+  final int id;
+  final String codigo;
+  final String nombre;
+  final double stockTotal;
+
+  factory SucursalStock.fromJson(Map<String, dynamic> json) {
+    final sucursal = json['sucursal'];
+    final sucursalMap = sucursal is Map
+        ? sucursal.map((k, v) => MapEntry(k.toString(), v))
+        : const <String, dynamic>{};
+    final stockRaw = json['stock_total'];
+    final stockTotal = stockRaw is num
+        ? stockRaw.toDouble()
+        : double.tryParse(stockRaw?.toString() ?? '') ?? 0;
+    return SucursalStock(
+      id: (sucursalMap['id'] as num?)?.toInt() ?? 0,
+      codigo: sucursalMap['codigo']?.toString() ?? '',
+      nombre: sucursalMap['nombre']?.toString() ?? '',
+      stockTotal: stockTotal,
+    );
   }
 }
