@@ -40,6 +40,7 @@ Pendiente:
 - (Opcional) centralizar cliente API para todas las consultas.
 - (Planificado) offline-first con base local y sincronizacion incremental.
 - API preparada para sync incremental con `updated_since` e `include_deleted` (pendiente consumo en app).
+- Postman del API actualizado con ejemplos de sync incremental y variable `last_sync`.
 
 Notas:
 - Ruta API debe incluir /api (ej. http://localhost:8000/api).
