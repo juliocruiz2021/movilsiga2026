@@ -309,9 +309,10 @@ class ProductsViewModel extends ChangeNotifier {
         final data = _decodeJson(body);
         final raw = data['product'];
         if (raw is Map) {
-          return Product.fromJson(
+          final updated = Product.fromJson(
             raw.map((k, v) => MapEntry(k.toString(), v)),
           );
+          return updated.mergeFallback(product);
         }
       }
       final data = _decodeJson(body);

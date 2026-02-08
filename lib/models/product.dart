@@ -93,6 +93,31 @@ class Product {
     ];
     return palette[id % palette.length];
   }
+
+  Product mergeFallback(Product fallback) {
+    String? pickText(String? value) {
+      return (value != null && value.trim().isNotEmpty) ? value : null;
+    }
+
+    return Product(
+      id: id != 0 ? id : fallback.id,
+      codigo: codigo.isNotEmpty ? codigo : fallback.codigo,
+      nombre: nombre.isNotEmpty ? nombre : fallback.nombre,
+      precio: precio != 0 ? precio : fallback.precio,
+      stock: stock != 0 ? stock : fallback.stock,
+      colorHex: colorHex,
+      categoryId: categoryId ?? fallback.categoryId,
+      categoryNombre: pickText(categoryNombre) ?? fallback.categoryNombre,
+      brandId: brandId ?? fallback.brandId,
+      brandNombre: pickText(brandNombre) ?? fallback.brandNombre,
+      fotoUrl: pickText(fotoUrl) ?? fallback.fotoUrl,
+      fotoUrlWeb: pickText(fotoUrlWeb) ?? fallback.fotoUrlWeb,
+      fotoThumbUrl: pickText(fotoThumbUrl) ?? fallback.fotoThumbUrl,
+      descripcion: pickText(descripcion) ?? fallback.descripcion,
+      stockBySucursal:
+          stockBySucursal.isNotEmpty ? stockBySucursal : fallback.stockBySucursal,
+    );
+  }
 }
 
 class SucursalStock {

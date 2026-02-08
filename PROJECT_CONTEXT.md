@@ -22,6 +22,7 @@ Estado actual:
 - Subida de imagen en ficha (galeria o camara) para usuarios con permiso productos.update.
 - Listado de productos filtrado fijo por tipo=1.
 - Se normaliza la orientacion de fotos tomadas en vertical antes de subir (EXIF).
+- Al subir foto se conservan marca y stock por sucursal (merge de datos).
 - Navegacion login -> catalogo -> detalle -> regresar sin recargar lista.
 - Boton salir hace logout y regresa a login.
 - Se normalizan URLs de imagen (localhost/127.0.0.1 -> host real del API).
