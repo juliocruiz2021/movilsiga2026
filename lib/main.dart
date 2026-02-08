@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
+import 'data/app_db.dart';
 import 'viewmodels/auth_viewmodel.dart';
 import 'viewmodels/login_viewmodel.dart';
 import 'viewmodels/products_viewmodel.dart';
@@ -25,6 +26,10 @@ class App extends StatelessWidget {
 
     return MultiProvider(
       providers: [
+        Provider<AppDb>(
+          create: (_) => AppDb(),
+          dispose: (_, db) => db.close(),
+        ),
         if (settingsViewModel != null)
           ChangeNotifierProvider.value(value: settingsViewModel!)
         else
@@ -39,11 +44,12 @@ class App extends StatelessWidget {
           update: (_, settings, auth, vm) =>
               (vm ?? LoginViewModel())..updateDependencies(settings, auth),
         ),
-        ChangeNotifierProxyProvider2<SettingsViewModel, AuthViewModel,
+        ChangeNotifierProxyProvider3<SettingsViewModel, AuthViewModel, AppDb,
             ProductsViewModel>(
           create: (_) => ProductsViewModel(),
-          update: (_, settings, auth, vm) =>
-              (vm ?? ProductsViewModel())..updateDependencies(settings, auth),
+          update: (_, settings, auth, db, vm) =>
+              (vm ?? ProductsViewModel())
+                ..updateDependencies(settings, auth, db),
         ),
       ],
       child: MaterialApp(

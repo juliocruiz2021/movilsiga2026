@@ -169,6 +169,48 @@ class _ToolbarState extends State<_Toolbar> {
                           : const Color(0xFF4C6F8A),
                     ),
                   ),
+                  IconButton(
+                    onPressed: vm.isSyncing
+                        ? null
+                        : () async {
+                            await vm.syncCatalog(incremental: false);
+                            if (!context.mounted) return;
+                            final message = vm.lastSyncError ??
+                                'Catálogo descargado.';
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(message)),
+                            );
+                          },
+                    icon: const Icon(Icons.cloud_download_outlined),
+                  ),
+                  IconButton(
+                    onPressed: vm.isSyncing
+                        ? null
+                        : () async {
+                            await vm.syncCatalog(incremental: true);
+                            if (!context.mounted) return;
+                            final message = vm.lastSyncError ??
+                                'Sincronización completa.';
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(message)),
+                            );
+                          },
+                    icon: const Icon(Icons.sync),
+                  ),
+                  IconButton(
+                    onPressed: vm.isDownloadingPhotos
+                        ? null
+                        : () async {
+                            await vm.downloadAllPhotos();
+                            if (!context.mounted) return;
+                            final message = vm.lastSyncError ??
+                                'Fotos descargadas.';
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(message)),
+                            );
+                          },
+                    icon: const Icon(Icons.photo_library_outlined),
+                  ),
                 ],
               ),
               const SizedBox(height: 12),

@@ -118,6 +118,8 @@ class Product {
           stockBySucursal.isNotEmpty ? stockBySucursal : fallback.stockBySucursal,
     );
   }
+
+  static int colorFromId(int id) => _colorFromId(id);
 }
 
 class SucursalStock {

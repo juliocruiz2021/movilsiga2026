@@ -3,7 +3,7 @@
 Proyecto: proyecto1
 Ubicacion: /Users/julioruiz/Desarrollo_Flutter/proyecto1
 API Laravel: apisiga (/Users/julioruiz/desarrollo_laravel/apisiga)
-Estado: Version estable (antes de sincronizacion incremental)
+Estado: En implementacion de sync offline (Drift + incremental)
 Fecha inicio: 2026-02-08
 Objetivo actual: App Flutter con patron MVVM + Provider, login conectado a API Laravel (apisiga) usando seguridad por token y permisos/roles por modulo (como en Laravel web), catalogo de productos paginado con filtros y detalle con zoom de imagen y stock por sucursal.
 
@@ -24,6 +24,9 @@ Estado actual:
 - Listado de productos filtrado fijo por tipo=1.
 - Se normaliza la orientacion de fotos tomadas en vertical antes de subir (EXIF).
 - Al subir foto se conservan marca y stock por sucursal (merge de datos).
+- Base local con Drift para catalogo (productos, categorias, marcas, sucursales, bodegas, existencias) y stock por sucursal.
+- Botones en catalogo: descargar catalogo completo, sincronizar incremental y descargar fotos.
+- Modo offline: si no hay internet, carga catalogo desde base local.
 - Navegacion login -> catalogo -> detalle -> regresar sin recargar lista.
 - Boton salir hace logout y regresa a login.
 - Se normalizan URLs de imagen (localhost/127.0.0.1 -> host real del API).
@@ -38,9 +41,8 @@ Pantallas:
 Pendiente:
 - (Opcional) agregar filtro por marca y toggle de activo en UI.
 - (Opcional) centralizar cliente API para todas las consultas.
-- (Planificado) offline-first con base local y sincronizacion incremental.
-- API preparada para sync incremental con `updated_since` e `include_deleted` (pendiente consumo en app).
-- Postman del API actualizado con ejemplos de sync incremental y variable `last_sync`.
+- Completar UI de estados/progreso de sincronizacion (por ahora SnackBars).
+- Definir estrategia de sync incremental por pantalla (otras entidades del ERP).
 
 Notas:
 - Ruta API debe incluir /api (ej. http://localhost:8000/api).
