@@ -49,5 +49,7 @@
 	<string>Necesitamos acceder a tus fotos para actualizar la imagen del producto.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Necesitamos guardar la foto seleccionada para el producto.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Necesitamos usar la camara para tomar la foto del producto.</string>
 </dict>
 </plist>

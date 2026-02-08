@@ -19,6 +19,8 @@ Estado actual:
 - Detalle de producto con imagen optimizada web y zoom (InteractiveViewer).
 - Precio en la foto (esquina inferior derecha), sin fondo, en celeste/azul.
 - Stock por sucursal mostrado en tres columnas (Stock / Sucursal / Valor).
+- Subida de imagen en ficha (galeria o camara) para usuarios con permiso productos.update.
+- Listado de productos filtrado fijo por tipo=1.
 - Navegacion login -> catalogo -> detalle -> regresar sin recargar lista.
 - Boton salir hace logout y regresa a login.
 - Se normalizan URLs de imagen (localhost/127.0.0.1 -> host real del API).

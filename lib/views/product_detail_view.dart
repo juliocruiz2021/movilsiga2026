@@ -28,10 +28,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
   Future<void> _uploadPhoto(BuildContext context) async {
     if (_isUploading) return;
     final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 85,
-    );
+    final picked = await _pickImage(context, picker);
     if (picked == null) return;
 
     setState(() => _isUploading = true);
@@ -55,6 +52,51 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     final message = vm.lastUploadError ?? 'No se pudo subir la imagen.';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
+    );
+  }
+
+  Future<XFile?> _pickImage(BuildContext context, ImagePicker picker) async {
+    return showModalBottomSheet<XFile?>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.photo_camera_outlined),
+                  title: const Text('Tomar foto'),
+                  onTap: () async {
+                    final photo = await picker.pickImage(
+                      source: ImageSource.camera,
+                      imageQuality: 85,
+                    );
+                    if (!context.mounted) return;
+                    Navigator.of(context).pop(photo);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.photo_library_outlined),
+                  title: const Text('Elegir de galería'),
+                  onTap: () async {
+                    final photo = await picker.pickImage(
+                      source: ImageSource.gallery,
+                      imageQuality: 85,
+                    );
+                    if (!context.mounted) return;
+                    Navigator.of(context).pop(photo);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

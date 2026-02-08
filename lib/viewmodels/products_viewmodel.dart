@@ -212,6 +212,7 @@ class ProductsViewModel extends ChangeNotifier {
     final params = <String, String>{
       'page': page.toString(),
       'per_page': _perPage.toString(),
+      'tipo': '1',
     };
     if (_searchQuery.isNotEmpty) {
       params['q'] = _searchQuery;
