@@ -24,7 +24,6 @@ Estado actual:
 - Navegacion login -> catalogo -> detalle -> regresar sin recargar lista.
 - Boton salir hace logout y regresa a login.
 - Se normalizan URLs de imagen (localhost/127.0.0.1 -> host real del API).
-- APK release generado: build/app/outputs/flutter-apk/app-release.apk.
 - APK release generado (actual): build/app/outputs/flutter-apk/app-release.apk.
 
 Pantallas:
