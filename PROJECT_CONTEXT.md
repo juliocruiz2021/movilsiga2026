@@ -23,6 +23,7 @@ Estado actual:
 - Boton salir hace logout y regresa a login.
 - Se normalizan URLs de imagen (localhost/127.0.0.1 -> host real del API).
 - APK release generado: build/app/outputs/flutter-apk/app-release.apk.
+- APK release generado (actual): build/app/outputs/flutter-apk/app-release.apk.
 
 Pantallas:
 - Login: tonos celestes, recuerda ultimo usuario/clave, valida contra API, navega a catalogo.

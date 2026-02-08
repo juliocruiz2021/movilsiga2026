@@ -160,7 +160,6 @@ class RolePermissions {
       'inventarios.view',
       'transferencias.view',
       'compras.view',
-      'ventas.view',
       'cxc.view',
       'cxc.pay',
       'cxp.view',
