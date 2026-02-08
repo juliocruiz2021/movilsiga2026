@@ -1,7 +1,10 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:image/image.dart' as img;
+import 'package:path_provider/path_provider.dart';
 
 import '../models/api_config.dart';
 import '../models/product.dart';
@@ -294,10 +297,11 @@ class ProductsViewModel extends ChangeNotifier {
       '/${config.companyCode}/productos/${product.id}/foto',
     );
     try {
+      final uploadPath = await _normalizeImageForUpload(filePath);
       final request = http.MultipartRequest('POST', uri);
       request.headers.addAll(_authHeaders(auth));
       request.files.add(
-        await http.MultipartFile.fromPath('foto', filePath),
+        await http.MultipartFile.fromPath('foto', uploadPath),
       );
       final response = await request.send();
       final body = await response.stream.bytesToString();
@@ -317,6 +321,24 @@ class ProductsViewModel extends ChangeNotifier {
       _lastUploadError = 'No se pudo subir la imagen.';
     }
     return null;
+  }
+
+  Future<String> _normalizeImageForUpload(String filePath) async {
+    try {
+      final bytes = await File(filePath).readAsBytes();
+      final decoded = img.decodeImage(bytes);
+      if (decoded == null) return filePath;
+      final baked = img.bakeOrientation(decoded);
+      final jpg = img.encodeJpg(baked, quality: 90);
+      final dir = await getTemporaryDirectory();
+      final target = File(
+        '${dir.path}/upload_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
+      await target.writeAsBytes(jpg, flush: true);
+      return target.path;
+    } catch (_) {
+      return filePath;
+    }
   }
 
   Map<String, dynamic> _decodeJson(String body) {
