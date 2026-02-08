@@ -3,6 +3,7 @@
 Proyecto: proyecto1
 Ubicacion: /Users/julioruiz/Desarrollo_Flutter/proyecto1
 API Laravel: apisiga (/Users/julioruiz/desarrollo_laravel/apisiga)
+Estado: Version estable (antes de sincronizacion incremental)
 Fecha inicio: 2026-02-08
 Objetivo actual: App Flutter con patron MVVM + Provider, login conectado a API Laravel (apisiga) usando seguridad por token y permisos/roles por modulo (como en Laravel web), catalogo de productos paginado con filtros y detalle con zoom de imagen y stock por sucursal.
 
@@ -37,6 +38,7 @@ Pantallas:
 Pendiente:
 - (Opcional) agregar filtro por marca y toggle de activo en UI.
 - (Opcional) centralizar cliente API para todas las consultas.
+- (Planificado) offline-first con base local y sincronizacion incremental.
 
 Notas:
 - Ruta API debe incluir /api (ej. http://localhost:8000/api).
