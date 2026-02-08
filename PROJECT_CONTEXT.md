@@ -39,6 +39,7 @@ Pendiente:
 - (Opcional) agregar filtro por marca y toggle de activo en UI.
 - (Opcional) centralizar cliente API para todas las consultas.
 - (Planificado) offline-first con base local y sincronizacion incremental.
+- API preparada para sync incremental con `updated_since` e `include_deleted` (pendiente consumo en app).
 
 Notas:
 - Ruta API debe incluir /api (ej. http://localhost:8000/api).
