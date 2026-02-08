@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -13,6 +14,7 @@ import 'settings_viewmodel.dart';
 class LoginViewModel extends ChangeNotifier {
   static const _lastEmailKey = 'last_login_email';
   static const _lastPasswordKey = 'last_login_password';
+  static const _hasLoggedInKey = 'has_logged_in';
 
   final FlutterSecureStorage _secureStorage;
 
@@ -102,6 +104,17 @@ class LoginViewModel extends ChangeNotifier {
         return;
       }
 
+      final hasConnection = await _hasConnection();
+      if (!hasConnection) {
+        if (await _tryOfflineLogin(allowWithoutToken: true)) {
+          return;
+        }
+        _errorMessage =
+            'Necesitas conexion para el primer inicio de sesion.';
+        _infoMessage = null;
+        return;
+      }
+
       final deviceName = await _getDeviceName();
       final response = await _loginRequest(apiConfig, companyToken, deviceName);
       if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -120,15 +133,22 @@ class LoginViewModel extends ChangeNotifier {
         _loginSuccess = true;
         notifyListeners();
         await _saveLastLogin();
+        await _markHasLoggedIn();
         _errorMessage = null;
         _infoMessage = message;
       } else {
+        if (await _tryOfflineLogin(allowWithoutToken: true)) {
+          return;
+        }
         final data = _decodeJson(response.body);
         final message = data['message'] as String? ?? 'Error al iniciar sesion.';
         _errorMessage = message;
         _infoMessage = null;
       }
     } catch (_) {
+      if (await _tryOfflineLogin(allowWithoutToken: true)) {
+        return;
+      }
       _errorMessage = 'No se pudo conectar con la API.';
       _infoMessage = null;
     } finally {
@@ -183,6 +203,31 @@ class LoginViewModel extends ChangeNotifier {
     }
 
     return _deviceName!;
+  }
+
+  Future<bool> _hasConnection() async {
+    final result = await Connectivity().checkConnectivity();
+    return result != ConnectivityResult.none;
+  }
+
+  Future<bool> _tryOfflineLogin({required bool allowWithoutToken}) async {
+    await _auth?.reloadFromStorage();
+    final prefs = await SharedPreferences.getInstance();
+    final hasLoggedIn = prefs.getBool(_hasLoggedInKey) ?? false;
+    if ((_auth != null && _auth!.hasToken) ||
+        (allowWithoutToken && hasLoggedIn)) {
+      _loginSuccess = true;
+      _errorMessage = null;
+      _infoMessage = 'Sesion offline activa.';
+      notifyListeners();
+      return true;
+    }
+    return false;
+  }
+
+  Future<void> _markHasLoggedIn() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_hasLoggedInKey, true);
   }
 
   String _firstNonEmpty(List<Object?> values) {

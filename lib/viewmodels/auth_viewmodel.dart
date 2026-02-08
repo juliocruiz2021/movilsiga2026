@@ -68,4 +68,8 @@ class AuthViewModel extends ChangeNotifier {
     _role = await _secureStorage.read(key: _authRoleKey) ?? '';
     notifyListeners();
   }
+
+  Future<void> reloadFromStorage() async {
+    await _load();
+  }
 }

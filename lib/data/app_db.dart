@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
+import 'package:path_provider/path_provider.dart';
 
 part 'app_db.g.dart';
 
@@ -128,7 +129,7 @@ class AppDb extends _$AppDb {
     return driftDatabase(
       name: 'movilsiga.sqlite',
       native: const DriftNativeOptions(
-        databaseDirectory: AppDatabaseDirectory.documents,
+        databaseDirectory: getApplicationDocumentsDirectory,
       ),
     );
   }
@@ -238,6 +239,69 @@ class AppDb extends _$AppDb {
           ..where((tbl) => tbl.productId.equals(productId)))
         .get();
   }
+
+  Future<int> countProducts() async {
+    final count = products.id.count();
+    final row = await (selectOnly(products)..addColumns([count])).getSingle();
+    return row.read(count) ?? 0;
+  }
+
+  Future<SyncStats> fetchSyncStats() async {
+    final productsStats = await _tableStats(
+      table: products,
+      id: products.id,
+      updatedAt: products.updatedAt,
+    );
+    final categoriesStats = await _tableStats(
+      table: productCategories,
+      id: productCategories.id,
+      updatedAt: productCategories.updatedAt,
+    );
+    final brandsStats = await _tableStats(
+      table: brands,
+      id: brands.id,
+      updatedAt: brands.updatedAt,
+    );
+    final sucursalesStats = await _tableStats(
+      table: sucursales,
+      id: sucursales.id,
+      updatedAt: sucursales.updatedAt,
+    );
+    final bodegasStats = await _tableStats(
+      table: bodegas,
+      id: bodegas.id,
+      updatedAt: bodegas.updatedAt,
+    );
+    final existenciasStats = await _tableStats(
+      table: existencias,
+      id: existencias.id,
+      updatedAt: existencias.updatedAt,
+    );
+
+    return SyncStats(
+      products: productsStats,
+      categories: categoriesStats,
+      brands: brandsStats,
+      sucursales: sucursalesStats,
+      bodegas: bodegasStats,
+      existencias: existenciasStats,
+    );
+  }
+
+  Future<TableSyncStats> _tableStats({
+    required TableInfo<Table, Object?> table,
+    required IntColumn id,
+    required DateTimeColumn updatedAt,
+  }) async {
+    final countExpr = id.count();
+    final maxExpr = updatedAt.max();
+    final row = await (selectOnly(table)
+          ..addColumns([countExpr, maxExpr]))
+        .getSingle();
+    final count = row.read(countExpr) ?? 0;
+    final maxDate = row.read(maxExpr);
+    return TableSyncStats(count: count, lastUpdatedAt: maxDate);
+  }
 }
 
 class Producto {
@@ -245,4 +309,32 @@ class Producto {
 
   final ProductRow row;
   final int total;
+}
+
+class SyncStats {
+  const SyncStats({
+    required this.products,
+    required this.categories,
+    required this.brands,
+    required this.sucursales,
+    required this.bodegas,
+    required this.existencias,
+  });
+
+  final TableSyncStats products;
+  final TableSyncStats categories;
+  final TableSyncStats brands;
+  final TableSyncStats sucursales;
+  final TableSyncStats bodegas;
+  final TableSyncStats existencias;
+}
+
+class TableSyncStats {
+  const TableSyncStats({
+    required this.count,
+    required this.lastUpdatedAt,
+  });
+
+  final int count;
+  final DateTime? lastUpdatedAt;
 }

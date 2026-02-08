@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -6,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:drift/drift.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -17,6 +19,7 @@ import 'auth_viewmodel.dart';
 import 'settings_viewmodel.dart';
 
 class ProductsViewModel extends ChangeNotifier {
+  static const bool _debugApi = true;
   SettingsViewModel? _settings;
   AuthViewModel? _auth;
   AppDb? _db;
@@ -35,6 +38,9 @@ class ProductsViewModel extends ChangeNotifier {
   String? _lastSyncError;
   bool _isSyncing = false;
   bool _isDownloadingPhotos = false;
+  bool _isOffline = false;
+  bool _didAutoSync = false;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
   int _currentPage = 1;
   int _lastPage = 1;
   final int _perPage = 20;
@@ -58,6 +64,7 @@ class ProductsViewModel extends ChangeNotifier {
   String? get lastSyncError => _lastSyncError;
   bool get isSyncing => _isSyncing;
   bool get isDownloadingPhotos => _isDownloadingPhotos;
+  bool get isOffline => _isOffline;
 
   Map<int, int> get cartItems => Map.unmodifiable(_cart);
 
@@ -80,10 +87,19 @@ class ProductsViewModel extends ChangeNotifier {
     _settings = settings;
     _auth = auth;
     _db = db;
+    _connectivitySub ??=
+        Connectivity().onConnectivityChanged.listen(_handleConnectivity);
     if (!_initialized) {
       _initialized = true;
       loadInitial();
     }
+  }
+
+  @override
+  void dispose() {
+    _connectivitySub?.cancel();
+    _connectivitySub = null;
+    super.dispose();
   }
 
   void updateCategory(int? categoryId) {
@@ -105,10 +121,35 @@ class ProductsViewModel extends ChangeNotifier {
   }
 
   void updateSearch(String value) {
-    final normalized = value.trim().toLowerCase();
+    final normalized = value.trim();
     if (_searchQuery == normalized) return;
     _searchQuery = normalized;
     loadInitial();
+  }
+
+  void resetSearch({bool notify = true}) {
+    if (_searchQuery.isEmpty) return;
+    _searchQuery = '';
+    if (notify) {
+      notifyListeners();
+    }
+  }
+
+  void resetFilters({bool reload = true}) {
+    _searchQuery = '';
+    _selectedCategoryId = null;
+    _selectedBrandId = null;
+    _onlyActive = true;
+    if (reload) {
+      loadInitial();
+    } else {
+      notifyListeners();
+    }
+  }
+
+  void resetSession() {
+    _didAutoSync = false;
+    _isOffline = false;
   }
 
   void updateViewMode(ProductViewMode mode) {
@@ -148,12 +189,26 @@ class ProductsViewModel extends ChangeNotifier {
 
     try {
       final hasConnection = await _hasConnection();
-      if (!hasConnection) {
+      final auth = _auth;
+      if (auth != null && auth.token.isEmpty) {
+        await auth.reloadFromStorage();
+      }
+      final hasToken = auth != null && auth.token.isNotEmpty;
+      if (!hasConnection || !hasToken) {
+        _setOffline(true);
         await _loadCategoriesLocal();
         await _loadProductsLocal(page: 1);
+        if (_products.isEmpty) {
+          _errorMessage =
+              'Sin datos locales. Conectate a internet y descarga el catalogo.';
+        }
+        await _logSyncStats('load_initial_offline');
       } else {
+        _setOffline(false);
         await _loadCategories();
         await _loadProducts(page: 1);
+        await _logSyncStats('load_initial_online');
+        _autoSyncAndPhotos();
       }
     } finally {
       _isLoading = false;
@@ -167,9 +222,16 @@ class ProductsViewModel extends ChangeNotifier {
     notifyListeners();
     try {
       final hasConnection = await _hasConnection();
-      if (!hasConnection) {
+      final auth = _auth;
+      if (auth != null && auth.token.isEmpty) {
+        await auth.reloadFromStorage();
+      }
+      final hasToken = auth != null && auth.token.isNotEmpty;
+      if (!hasConnection || !hasToken) {
+        _setOffline(true);
         await _loadProductsLocal(page: _currentPage + 1);
       } else {
+        _setOffline(false);
         await _loadProducts(page: _currentPage + 1);
       }
     } finally {
@@ -235,6 +297,7 @@ class ProductsViewModel extends ChangeNotifier {
     } finally {
       _isSyncing = false;
       notifyListeners();
+      await _logSyncStats('sync_catalog');
     }
   }
 
@@ -297,26 +360,38 @@ class ProductsViewModel extends ChangeNotifier {
   Future<void> _loadCategories() async {
     final config = _currentConfig();
     final auth = _auth;
+    final db = _db;
     if (config == null || auth == null || auth.token.isEmpty) return;
 
     final uri = config.buildUri('/${config.companyCode}/categorias').replace(
       queryParameters: {'per_page': '100'},
     );
-    final response = await http.get(uri, headers: _authHeaders(auth));
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      final data = _decodeJson(response.body);
-      final raw = data['categories'];
-      if (raw is List) {
-        _categories
-          ..clear()
-          ..addAll(
-            raw
-                .whereType<Map>()
-                .map((item) => ProductCategory.fromJson(
-                      item.map((k, v) => MapEntry(k.toString(), v)),
-                    )),
-          );
+    try {
+      final response = await http.get(uri, headers: _authHeaders(auth));
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        _setOffline(false);
+        final data = _decodeJson(response.body);
+        final raw = data['categories'];
+        if (raw is List) {
+          final items = raw
+              .whereType<Map>()
+              .map((item) => item.map((k, v) => MapEntry(k.toString(), v)))
+              .toList();
+          _categories
+            ..clear()
+            ..addAll(items.map((item) => ProductCategory.fromJson(item)));
+          if (db != null) {
+            final rows = items.map(_categoryCompanion).toList();
+            await db.upsertCategories(rows);
+          }
+        }
+        return;
       }
+    } catch (_) {}
+
+    _setOffline(true);
+    if (db != null) {
+      await _loadCategoriesLocal();
     }
   }
 
@@ -388,11 +463,19 @@ class ProductsViewModel extends ChangeNotifier {
     }
     _currentPage = page;
     _lastPage = lastPage;
+    if (_debugApi) {
+      debugPrint(
+        '[products][local] page=$page count=${items.length} total=$total '
+        'search="$_searchQuery" category=$_selectedCategoryId brand=$_selectedBrandId '
+        'activo=$_onlyActive tipo=1',
+      );
+    }
   }
 
   Future<void> _loadProducts({required int page}) async {
     final config = _currentConfig();
     final auth = _auth;
+    final db = _db;
     if (config == null || auth == null || auth.token.isEmpty) {
       _errorMessage = 'No hay sesion activa.';
       return;
@@ -419,36 +502,103 @@ class ProductsViewModel extends ChangeNotifier {
     final uri = config
         .buildUri('/${config.companyCode}/productos')
         .replace(queryParameters: params);
-    final response = await http.get(uri, headers: _authHeaders(auth));
-
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      _lastProductsResponse = response.body;
-      final data = _decodeJson(response.body);
-      final raw = data['products'];
-      if (raw is List) {
-        final items = raw
-            .whereType<Map>()
-            .map((item) => Product.fromJson(
-                  item.map((k, v) => MapEntry(k.toString(), v)),
-                ))
-            .toList();
-        if (page == 1) {
-          _products
-            ..clear()
-            ..addAll(items);
-        } else {
-          _products.addAll(items);
+    try {
+      final response = await http.get(uri, headers: _authHeaders(auth));
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        _setOffline(false);
+        _lastProductsResponse = response.body;
+        final data = _decodeJson(response.body);
+        final raw = data['products'];
+        if (raw is List) {
+          final mapped = raw
+              .whereType<Map>()
+              .map((item) => item.map((k, v) => MapEntry(k.toString(), v)))
+              .toList();
+          final items = mapped.map(Product.fromJson).toList();
+          if (page == 1) {
+            _products
+              ..clear()
+              ..addAll(items);
+          } else {
+            _products.addAll(items);
+          }
+          if (db != null) {
+            final rows = mapped.map(_productCompanion).toList();
+            await db.upsertProducts(rows);
+            for (final item in mapped) {
+              final productId = _toInt(item['id']);
+              if (productId == null) continue;
+              final stocksRaw = item['existencias_sucursales'];
+              final stocks = <ProductSucursalStocksCompanion>[];
+              if (stocksRaw is List) {
+                for (final entry in stocksRaw) {
+                  if (entry is Map) {
+                    final sucursal = entry['sucursal'];
+                    final sucursalMap = sucursal is Map
+                        ? sucursal.map((k, v) => MapEntry(k.toString(), v))
+                        : const <String, dynamic>{};
+                    final stockTotal = _toDouble(entry['stock_total']);
+                    final sucursalId = _toInt(sucursalMap['id']) ?? 0;
+                    stocks.add(ProductSucursalStocksCompanion(
+                      productId: Value(productId),
+                      sucursalId: Value(sucursalId),
+                      sucursalCodigo: Value(sucursalMap['codigo']?.toString()),
+                      sucursalNombre: Value(sucursalMap['nombre']?.toString()),
+                      stockTotal: Value(stockTotal),
+                    ));
+                  }
+                }
+              }
+              if (stocks.isNotEmpty) {
+                await db.replaceProductSucursalStocks(productId, stocks);
+              }
+            }
+          }
         }
+        final pagination = data['pagination'];
+        if (pagination is Map) {
+          _currentPage =
+              (pagination['current_page'] as num?)?.toInt() ?? _currentPage;
+          _lastPage = (pagination['last_page'] as num?)?.toInt() ?? _lastPage;
+        }
+        if (_debugApi) {
+          debugPrint(
+            '[products][api] url=$uri status=${response.statusCode} '
+            'items=${_products.length} page=$page lastPage=$_lastPage '
+            'search="$_searchQuery" category=$_selectedCategoryId brand=$_selectedBrandId '
+            'activo=$_onlyActive tipo=1',
+          );
+        }
+        return;
       }
-      final pagination = data['pagination'];
-      if (pagination is Map) {
-        _currentPage =
-            (pagination['current_page'] as num?)?.toInt() ?? _currentPage;
-        _lastPage = (pagination['last_page'] as num?)?.toInt() ?? _lastPage;
+      if (_debugApi) {
+        debugPrint(
+          '[products][api] url=$uri status=${response.statusCode} body=${response.body}',
+        );
       }
-    } else {
-      _errorMessage = 'No se pudo cargar productos.';
+    } catch (_) {}
+
+    _setOffline(true);
+    _errorMessage = 'No se pudo cargar productos.';
+    if (db != null) {
+      await _loadProductsLocal(page: page);
+      if (_products.isEmpty) {
+        _errorMessage =
+            'Sin datos locales. Conectate a internet y descarga el catalogo.';
+      }
     }
+  }
+
+  void _setOffline(bool value) {
+    if (_isOffline == value) return;
+    _isOffline = value;
+    notifyListeners();
+  }
+
+  void _handleConnectivity(List<ConnectivityResult> results) {
+    final offline = results.isEmpty ||
+        (results.length == 1 && results.first == ConnectivityResult.none);
+    _setOffline(offline);
   }
 
   Future<void> _syncCategories(
@@ -696,11 +846,12 @@ class ProductsViewModel extends ChangeNotifier {
     final brandMap = brand is Map
         ? brand.map((k, v) => MapEntry(k.toString(), v))
         : const <String, dynamic>{};
+    final tipoValue = _toInt(json['tipo']);
     return ProductsCompanion(
       id: Value(_toInt(json['id']) ?? 0),
       codigo: Value(json['codigo']?.toString() ?? ''),
       nombre: Value(json['nombre']?.toString() ?? ''),
-      tipo: Value(_toInt(json['tipo'])),
+      tipo: Value(tipoValue ?? 1),
       precio: Value(_toDouble(json['precio'])),
       stock: Value(_toDouble(json['stock'])),
       activo: Value(_toBool(json['activo']) ?? true),
@@ -753,9 +904,46 @@ class ProductsViewModel extends ChangeNotifier {
     return DateTime.tryParse(raw);
   }
 
+  Future<void> _logSyncStats(String label) async {
+    final db = _db;
+    if (db == null) return;
+    try {
+      final stats = await db.fetchSyncStats();
+      final lastSync = await _readLastSync();
+      String fmt(DateTime? value) =>
+          value == null ? '-' : value.toIso8601String();
+      debugPrint(
+        '[sync][$label] lastSync=${fmt(lastSync)} '
+        'products=${stats.products.count} updated=${fmt(stats.products.lastUpdatedAt)} '
+        'categories=${stats.categories.count} updated=${fmt(stats.categories.lastUpdatedAt)} '
+        'brands=${stats.brands.count} updated=${fmt(stats.brands.lastUpdatedAt)} '
+        'sucursales=${stats.sucursales.count} updated=${fmt(stats.sucursales.lastUpdatedAt)} '
+        'bodegas=${stats.bodegas.count} updated=${fmt(stats.bodegas.lastUpdatedAt)} '
+        'existencias=${stats.existencias.count} updated=${fmt(stats.existencias.lastUpdatedAt)}',
+      );
+    } catch (e) {
+      debugPrint('[sync][$label] error leyendo stats: $e');
+    }
+  }
+
   Future<void> _saveLastSync(DateTime value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_lastSyncKey, value.toIso8601String());
+  }
+
+  void _autoSyncAndPhotos() {
+    if (_didAutoSync) return;
+    _didAutoSync = true;
+    unawaited(_runAutoSyncAndPhotos());
+  }
+
+  Future<void> _runAutoSyncAndPhotos() async {
+    final auth = _auth;
+    if (auth == null || auth.token.isEmpty) return;
+    final hasConnection = await _hasConnection();
+    if (!hasConnection) return;
+    await syncCatalog(incremental: true);
+    await downloadAllPhotos();
   }
 
   ApiConfig? _currentConfig() {
@@ -771,6 +959,7 @@ class ProductsViewModel extends ChangeNotifier {
     return {
       'Accept': 'application/json',
       'Authorization': auth.authorizationHeader,
+      if (_debugApi) 'X-Debug': '1',
     };
   }
 

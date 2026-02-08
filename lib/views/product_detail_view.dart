@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
@@ -111,9 +112,31 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     final canUpload = context.select<AuthViewModel, bool>(
       (auth) => auth.hasPermission('productos.update'),
     );
+    final isOffline = context.select<ProductsViewModel, bool>(
+      (vm) => vm.isOffline,
+    );
 
     return Scaffold(
       appBar: AppBar(
+        leadingWidth: 88,
+        leading: Consumer<ProductsViewModel>(
+          builder: (context, vm, _) {
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const BackButton(),
+                if (vm.isOffline)
+                  const Padding(
+                    padding: EdgeInsets.only(left: 4),
+                    child: Icon(
+                      Icons.cloud_off,
+                      color: Color(0xFFB00020),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
         title: Text(_product.nombre),
       ),
       body: SafeArea(
@@ -137,10 +160,10 @@ class _ProductDetailViewState extends State<ProductDetailView> {
                             ? InteractiveViewer(
                                 minScale: 1,
                                 maxScale: 4,
-                                child: Image.network(
-                                  imageUrl,
+                                child: _CachedNetworkImage(
+                                  url: imageUrl,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) =>
+                                  errorWidget:
                                       _ImageFallback(color: _product.colorHex),
                                 ),
                               )
@@ -168,7 +191,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
                           ),
                         ),
                       ),
-                      if (canUpload)
+                      if (canUpload && !isOffline)
                         Positioned(
                           right: 12,
                           top: 12,
@@ -332,6 +355,45 @@ class _ProductDetailViewState extends State<ProductDetailView> {
           },
         ),
       ),
+    );
+  }
+}
+
+class _CachedNetworkImage extends StatelessWidget {
+  const _CachedNetworkImage({
+    required this.url,
+    required this.fit,
+    this.errorWidget,
+  });
+
+  final String url;
+  final BoxFit fit;
+  final Widget? errorWidget;
+
+  @override
+  Widget build(BuildContext context) {
+    if (url.trim().isEmpty) {
+      return errorWidget ?? const SizedBox.shrink();
+    }
+
+    final cache = DefaultCacheManager();
+    return FutureBuilder<FileInfo?>(
+      future: cache.getFileFromCache(url),
+      builder: (context, snapshot) {
+        final cached = snapshot.data?.file;
+        if (cached != null) {
+          return Image.file(
+            cached,
+            fit: fit,
+          );
+        }
+        return Image.network(
+          url,
+          fit: fit,
+          errorBuilder: (_, __, ___) =>
+              errorWidget ?? const SizedBox.shrink(),
+        );
+      },
     );
   }
 }

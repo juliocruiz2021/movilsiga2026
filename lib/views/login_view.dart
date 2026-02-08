@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../viewmodels/login_viewmodel.dart';
+import '../viewmodels/products_viewmodel.dart';
 import 'settings_view.dart';
 import 'products_view.dart';
 
@@ -33,6 +34,9 @@ class _LoginViewState extends State<LoginView> {
       _navigated = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!context.mounted) return;
+        final productsVm = context.read<ProductsViewModel>();
+        productsVm.resetFilters(reload: false);
+        productsVm.resetSession();
         context.read<LoginViewModel>().consumeLoginSuccess();
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const ProductsView()),

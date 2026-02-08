@@ -27,6 +27,11 @@ Estado actual:
 - Base local con Drift para catalogo (productos, categorias, marcas, sucursales, bodegas, existencias) y stock por sucursal.
 - Botones en catalogo: descargar catalogo completo, sincronizar incremental y descargar fotos.
 - Modo offline: si no hay internet, carga catalogo desde base local.
+- Login offline: si ya hubo sesion previa, permite entrar sin internet (usa datos locales).
+- Indicador offline: icono de nube en AppBar del catalogo y ficha, cambia en tiempo real.
+- Cache de imagenes: fotos descargadas se muestran offline desde cache local.
+- Auto-sync al entrar con internet: sincroniza incremental y descarga fotos una vez por sesion.
+- Limpieza de filtros al iniciar/cerrar sesion (busqueda, familia, marca, activo).
 - Navegacion login -> catalogo -> detalle -> regresar sin recargar lista.
 - Boton salir hace logout y regresa a login.
 - Se normalizan URLs de imagen (localhost/127.0.0.1 -> host real del API).

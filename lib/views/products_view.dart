@@ -1,5 +1,6 @@
 
 import 'package:flutter/material.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:provider/provider.dart';
 
 import '../models/product.dart';
@@ -26,10 +27,81 @@ class _ProductsScaffold extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Catalogo de productos'),
+        title: Consumer<ProductsViewModel>(
+          builder: (context, vm, _) {
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (vm.isOffline)
+                  const Padding(
+                    padding: EdgeInsets.only(right: 8),
+                    child: Icon(
+                      Icons.cloud_off,
+                      color: Color(0xFFB00020),
+                    ),
+                  ),
+                const Text('Productos'),
+              ],
+            );
+          },
+        ),
         actions: [
+          Consumer<ProductsViewModel>(
+            builder: (context, vm, _) {
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    onPressed: vm.isSyncing
+                        ? null
+                        : () async {
+                            await vm.syncCatalog(incremental: false);
+                            if (!context.mounted) return;
+                            final message = vm.lastSyncError ??
+                                'Catálogo descargado.';
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(message)),
+                            );
+                          },
+                    icon: const Icon(Icons.cloud_download_outlined),
+                  ),
+                  IconButton(
+                    onPressed: vm.isSyncing
+                        ? null
+                        : () async {
+                            await vm.syncCatalog(incremental: true);
+                            if (!context.mounted) return;
+                            final message = vm.lastSyncError ??
+                                'Sincronización completa.';
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(message)),
+                            );
+                          },
+                    icon: const Icon(Icons.sync),
+                  ),
+                  IconButton(
+                    onPressed: vm.isDownloadingPhotos
+                        ? null
+                        : () async {
+                            await vm.downloadAllPhotos();
+                            if (!context.mounted) return;
+                            final message = vm.lastSyncError ??
+                                'Fotos descargadas.';
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(message)),
+                            );
+                          },
+                    icon: const Icon(Icons.photo_library_outlined),
+                  ),
+                ],
+              );
+            },
+          ),
           IconButton(
             onPressed: () async {
+              final productsVm = context.read<ProductsViewModel>();
+              productsVm.resetFilters(reload: false);
+              productsVm.resetSession();
               await context.read<AuthViewModel>().clearToken();
               if (!context.mounted) return;
               Navigator.of(context).pushReplacement(
@@ -168,48 +240,6 @@ class _ToolbarState extends State<_Toolbar> {
                           ? const Color(0xFF1B9CFF)
                           : const Color(0xFF4C6F8A),
                     ),
-                  ),
-                  IconButton(
-                    onPressed: vm.isSyncing
-                        ? null
-                        : () async {
-                            await vm.syncCatalog(incremental: false);
-                            if (!context.mounted) return;
-                            final message = vm.lastSyncError ??
-                                'Catálogo descargado.';
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(message)),
-                            );
-                          },
-                    icon: const Icon(Icons.cloud_download_outlined),
-                  ),
-                  IconButton(
-                    onPressed: vm.isSyncing
-                        ? null
-                        : () async {
-                            await vm.syncCatalog(incremental: true);
-                            if (!context.mounted) return;
-                            final message = vm.lastSyncError ??
-                                'Sincronización completa.';
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(message)),
-                            );
-                          },
-                    icon: const Icon(Icons.sync),
-                  ),
-                  IconButton(
-                    onPressed: vm.isDownloadingPhotos
-                        ? null
-                        : () async {
-                            await vm.downloadAllPhotos();
-                            if (!context.mounted) return;
-                            final message = vm.lastSyncError ??
-                                'Fotos descargadas.';
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(message)),
-                            );
-                          },
-                    icon: const Icon(Icons.photo_library_outlined),
                   ),
                 ],
               ),
@@ -400,13 +430,12 @@ class _ProductCard extends StatelessWidget {
                               product.fotoThumbUrl!.isNotEmpty
                           ? ClipRRect(
                               borderRadius: BorderRadius.circular(14),
-                              child: Image.network(
-                                vm.resolveImageUrl(product.fotoThumbUrl),
+                              child: _CachedNetworkImage(
+                                url: vm.resolveImageUrl(product.fotoThumbUrl),
                                 fit: BoxFit.cover,
                                 width: double.infinity,
                                 height: double.infinity,
-                                errorBuilder: (_, __, ___) =>
-                                    _NoImage(color: color),
+                                errorWidget: _NoImage(color: color),
                               ),
                             )
                           : _NoImage(color: color),
@@ -566,6 +595,53 @@ class _NoImage extends StatelessWidget {
               ),
         ),
       ],
+    );
+  }
+}
+
+class _CachedNetworkImage extends StatelessWidget {
+  const _CachedNetworkImage({
+    required this.url,
+    required this.fit,
+    this.width,
+    this.height,
+    this.errorWidget,
+  });
+
+  final String url;
+  final BoxFit fit;
+  final double? width;
+  final double? height;
+  final Widget? errorWidget;
+
+  @override
+  Widget build(BuildContext context) {
+    if (url.trim().isEmpty) {
+      return errorWidget ?? const SizedBox.shrink();
+    }
+
+    final cache = DefaultCacheManager();
+    return FutureBuilder<FileInfo?>(
+      future: cache.getFileFromCache(url),
+      builder: (context, snapshot) {
+        final cached = snapshot.data?.file;
+        if (cached != null) {
+          return Image.file(
+            cached,
+            fit: fit,
+            width: width,
+            height: height,
+          );
+        }
+        return Image.network(
+          url,
+          fit: fit,
+          width: width,
+          height: height,
+          errorBuilder: (_, __, ___) =>
+              errorWidget ?? const SizedBox.shrink(),
+        );
+      },
     );
   }
 }
