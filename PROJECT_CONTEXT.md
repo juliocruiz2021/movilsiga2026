@@ -332,3 +332,7 @@ Notas:
 - Efecto esperado:
   - se elimina el crash de layout (`RenderBox was not laid out`) al abrir `Clientes`,
   - los botones mantienen altura uniforme y en pantallas de formulario siguen ocupando ancho disponible cuando el layout lo provee.
+- Refuerzo adicional en `ClientsView`:
+  - header responsivo con `LayoutBuilder`,
+  - boton `Nuevo` envuelto en `ConstrainedBox(maxWidth: 180)`,
+  - evita propagacion de constraints no acotadas en layouts tipo `Row`.

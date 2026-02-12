@@ -87,26 +87,49 @@ class _ClientsViewState extends State<ClientsView> {
 
         return Column(
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Clientes',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: palette.textStrong,
-                    ),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 420;
+                final title = Text(
+                  'Clientes',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: palette.textStrong,
                   ),
-                ),
-                if (canCreateClients)
-                  ElevatedButton.icon(
-                    onPressed: vm.isSaving
-                        ? null
-                        : () => _openCreateClient(context),
-                    icon: const Icon(Icons.person_add_alt_1_outlined),
-                    label: const Text('Nuevo'),
-                  ),
-              ],
+                );
+
+                final action = canCreateClients
+                    ? ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 180),
+                        child: ElevatedButton.icon(
+                          onPressed: vm.isSaving
+                              ? null
+                              : () => _openCreateClient(context),
+                          icon: const Icon(Icons.person_add_alt_1_outlined),
+                          label: const Text('Nuevo'),
+                        ),
+                      )
+                    : const SizedBox.shrink();
+
+                if (compact) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      title,
+                      if (canCreateClients) const SizedBox(height: 8),
+                      if (canCreateClients)
+                        Align(alignment: Alignment.centerLeft, child: action),
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    Expanded(child: title),
+                    if (canCreateClients) action,
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 10),
             TextField(
