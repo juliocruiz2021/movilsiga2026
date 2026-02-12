@@ -322,3 +322,13 @@ Notas:
   - `runZonedGuarded(...)`.
 - Resultado esperado:
   - si vuelve a reventar al tocar `Clientes`, debe quedar traza `FATAL` con stack completo en consola.
+
+### 2026-02-12 (fix crash Clientes por constraints)
+- Causa raiz identificada del crash al tocar `Clientes`:
+  - `ElevatedButtonTheme` tenia `minimumSize: Size.fromHeight(52)`, lo que implica ancho infinito.
+  - En `Clientes` el boton `Nuevo` vive dentro de un `Row`; en ese contexto el ancho infinito produce `BoxConstraints forces an infinite width`.
+- Ajuste aplicado en tema global:
+  - `minimumSize` de botones elevados cambia a `Size(0, 52)` para conservar altura estandar sin forzar ancho infinito.
+- Efecto esperado:
+  - se elimina el crash de layout (`RenderBox was not laid out`) al abrir `Clientes`,
+  - los botones mantienen altura uniforme y en pantallas de formulario siguen ocupando ancho disponible cuando el layout lo provee.

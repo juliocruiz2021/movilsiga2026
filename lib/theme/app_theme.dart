@@ -337,7 +337,7 @@ class AppTheme {
           backgroundColor: palette.primary,
           foregroundColor: palette.onPrimary,
           elevation: 0,
-          minimumSize: const Size.fromHeight(52),
+          minimumSize: const Size(0, 52),
           textStyle: textTheme.labelLarge,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
