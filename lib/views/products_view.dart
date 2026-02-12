@@ -39,15 +39,18 @@ class _ProductsScaffold extends StatelessWidget {
           : MainNavigationDrawer(
               selectedIndex: MainMenuIndex.products,
               onDestinationSelected: (index) {
+                Navigator.of(context).pop();
                 if (index == MainMenuIndex.products) return;
                 _goToHomeSection(context, index);
               },
               onOpenSettings: () {
+                Navigator.of(context).pop();
                 Navigator.of(
                   context,
                 ).push(MaterialPageRoute(builder: (_) => const SettingsView()));
               },
               onLogout: () {
+                Navigator.of(context).pop();
                 _logout(context);
               },
             ),
