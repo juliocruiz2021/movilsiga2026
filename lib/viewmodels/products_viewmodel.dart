@@ -11,6 +11,7 @@ import 'package:drift/drift.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../constants/pagination.dart';
 import '../models/api_config.dart';
 import '../models/product.dart';
 import '../models/product_category.dart';
@@ -43,7 +44,7 @@ class ProductsViewModel extends ChangeNotifier {
   StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
   int _currentPage = 1;
   int _lastPage = 1;
-  final int _perPage = 20;
+  static const int _paginationPageSize = kPageSize;
   bool _initialized = false;
   final Map<int, int> _cart = {};
   ProductViewMode _viewMode = ProductViewMode.grid;
@@ -371,30 +372,22 @@ class ProductsViewModel extends ChangeNotifier {
     final db = _db;
     if (config == null || auth == null || auth.token.isEmpty) return;
 
-    final uri = config
-        .buildUri('/${config.companyCode}/categorias')
-        .replace(queryParameters: {'per_page': '100'});
     try {
-      final response = await http.get(uri, headers: _authHeaders(auth));
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        _setOffline(false);
-        final data = _decodeJson(response.body);
-        final raw = data['categories'];
-        if (raw is List) {
-          final items = raw
-              .whereType<Map>()
-              .map((item) => item.map((k, v) => MapEntry(k.toString(), v)))
-              .toList();
-          _categories
-            ..clear()
-            ..addAll(items.map((item) => ProductCategory.fromJson(item)));
-          if (db != null) {
-            final rows = items.map(_categoryCompanion).toList();
-            await db.upsertCategories(rows);
-          }
-        }
-        return;
+      final items = await _fetchPaged(
+        config: config,
+        auth: auth,
+        path: '/${config.companyCode}/categorias',
+        listKey: 'categories',
+      );
+      _setOffline(false);
+      _categories
+        ..clear()
+        ..addAll(items.map(ProductCategory.fromJson));
+      if (db != null) {
+        final rows = items.map(_categoryCompanion).toList();
+        await db.upsertCategories(rows);
       }
+      return;
     } catch (_) {}
 
     _setOffline(true);
@@ -423,7 +416,7 @@ class ProductsViewModel extends ChangeNotifier {
 
     final result = await db.fetchProductsPage(
       page: page,
-      perPage: _perPage,
+      perPage: _paginationPageSize,
       search: _searchQuery.isNotEmpty ? _searchQuery : null,
       categoryId: _selectedCategoryId,
       brandId: _selectedBrandId,
@@ -433,7 +426,7 @@ class ProductsViewModel extends ChangeNotifier {
 
     final rows = result.map((item) => item.row).toList();
     final total = result.isNotEmpty ? result.first.total : 0;
-    final lastPage = (total / _perPage).ceil().clamp(1, 9999);
+    final lastPage = (total / _paginationPageSize).ceil().clamp(1, 9999);
 
     final items = <Product>[];
     for (final row in rows) {
@@ -497,7 +490,7 @@ class ProductsViewModel extends ChangeNotifier {
 
     final params = <String, String>{
       'page': page.toString(),
-      'per_page': _perPage.toString(),
+      'per_page': _paginationPageSize.toString(),
       'tipo': '1',
     };
     if (_searchQuery.isNotEmpty) {
@@ -769,7 +762,7 @@ class ProductsViewModel extends ChangeNotifier {
     do {
       final params = <String, String>{
         'page': page.toString(),
-        'per_page': '100',
+        'per_page': _paginationPageSize.toString(),
         ...extraParams,
       };
       if (since != null) {

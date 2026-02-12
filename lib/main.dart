@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import 'data/app_db.dart';
 import 'theme/app_theme.dart';
 import 'viewmodels/auth_viewmodel.dart';
+import 'viewmodels/clients_viewmodel.dart';
+import 'viewmodels/connectivity_viewmodel.dart';
 import 'viewmodels/login_viewmodel.dart';
 import 'viewmodels/products_viewmodel.dart';
 import 'viewmodels/settings_viewmodel.dart';
@@ -33,6 +35,7 @@ class App extends StatelessWidget {
           ChangeNotifierProvider.value(value: authViewModel!)
         else
           ChangeNotifierProvider(create: (_) => AuthViewModel()),
+        ChangeNotifierProvider(create: (_) => ConnectivityViewModel()),
         ChangeNotifierProxyProvider2<
           SettingsViewModel,
           AuthViewModel,
@@ -41,6 +44,15 @@ class App extends StatelessWidget {
           create: (_) => LoginViewModel(),
           update: (_, settings, auth, vm) =>
               (vm ?? LoginViewModel())..updateDependencies(settings, auth),
+        ),
+        ChangeNotifierProxyProvider2<
+          SettingsViewModel,
+          AuthViewModel,
+          ClientsViewModel
+        >(
+          create: (_) => ClientsViewModel(),
+          update: (_, settings, auth, vm) =>
+              (vm ?? ClientsViewModel())..updateDependencies(settings, auth),
         ),
         ChangeNotifierProxyProvider3<
           SettingsViewModel,

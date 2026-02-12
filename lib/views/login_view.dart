@@ -7,6 +7,7 @@ import '../viewmodels/products_viewmodel.dart';
 import 'home_view.dart';
 import 'settings_view.dart';
 import 'widgets/app_themed_background.dart';
+import 'widgets/offline_cloud_icon.dart';
 
 class LoginView extends StatefulWidget {
   const LoginView({super.key});
@@ -48,34 +49,49 @@ class _LoginViewState extends State<LoginView> {
     }
     return Scaffold(
       body: AppThemedBackground(
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: TweenAnimationBuilder<double>(
-                  duration: const Duration(milliseconds: 600),
-                  curve: Curves.easeOutCubic,
-                  tween: Tween(begin: 0, end: 1),
-                  builder: (context, value, child) {
-                    return Opacity(
-                      opacity: value,
-                      child: Transform.translate(
-                        offset: Offset(0, 16 * (1 - value)),
-                        child: child,
+        child: Stack(
+          children: [
+            SafeArea(
+              child: Align(
+                alignment: Alignment.topRight,
+                child: OfflineCloudIcon(
+                  padding: EdgeInsets.only(top: 8, right: 8),
+                ),
+              ),
+            ),
+            SafeArea(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 16,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    child: TweenAnimationBuilder<double>(
+                      duration: const Duration(milliseconds: 600),
+                      curve: Curves.easeOutCubic,
+                      tween: Tween(begin: 0, end: 1),
+                      builder: (context, value, child) {
+                        return Opacity(
+                          opacity: value,
+                          child: Transform.translate(
+                            offset: Offset(0, 16 * (1 - value)),
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: _LoginCard(
+                        emailController: _emailController,
+                        passwordController: _passwordController,
+                        onSync: _syncControllers,
                       ),
-                    );
-                  },
-                  child: _LoginCard(
-                    emailController: _emailController,
-                    passwordController: _passwordController,
-                    onSync: _syncControllers,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
+          ],
         ),
       ),
       floatingActionButton: FloatingActionButton(

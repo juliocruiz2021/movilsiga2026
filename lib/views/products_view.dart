@@ -11,6 +11,7 @@ import 'product_detail_view.dart';
 import 'login_view.dart';
 import 'widgets/app_themed_background.dart';
 import 'widgets/main_navigation_drawer.dart';
+import 'widgets/offline_cloud_icon.dart';
 
 class ProductsView extends StatelessWidget {
   const ProductsView({super.key, this.homeBuilder});
@@ -31,7 +32,6 @@ class _ProductsScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final palette = context.palette;
 
     return Scaffold(
       drawer: homeBuilder == null
@@ -55,22 +55,9 @@ class _ProductsScaffold extends StatelessWidget {
               },
             ),
       appBar: AppBar(
-        title: Consumer<ProductsViewModel>(
-          builder: (context, vm, _) {
-            return Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (vm.isOffline)
-                  Padding(
-                    padding: EdgeInsets.only(right: 8),
-                    child: Icon(Icons.cloud_off, color: palette.danger),
-                  ),
-                const Text('Productos'),
-              ],
-            );
-          },
-        ),
+        title: const Text('Productos'),
         actions: [
+          const OfflineCloudIcon(padding: EdgeInsets.only(right: 2)),
           Consumer<ProductsViewModel>(
             builder: (context, vm, _) {
               return Row(

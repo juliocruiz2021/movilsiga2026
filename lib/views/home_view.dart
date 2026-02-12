@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../viewmodels/auth_viewmodel.dart';
+import '../viewmodels/connectivity_viewmodel.dart';
 import '../viewmodels/products_viewmodel.dart';
+import 'clients_view.dart';
 import 'login_view.dart';
 import 'products_view.dart';
 import 'settings_view.dart';
 import 'widgets/app_themed_background.dart';
 import 'widgets/main_navigation_drawer.dart';
+import 'widgets/offline_cloud_icon.dart';
 
 class HomeView extends StatefulWidget {
   const HomeView({super.key, this.initialIndex = MainMenuIndex.home});
@@ -38,7 +41,10 @@ class _HomeViewState extends State<HomeView> {
     ];
 
     return Scaffold(
-      appBar: AppBar(title: Text(titles[_selectedIndex])),
+      appBar: AppBar(
+        title: Text(titles[_selectedIndex]),
+        actions: const [OfflineCloudIcon()],
+      ),
       drawer: MainNavigationDrawer(
         selectedIndex: _selectedIndex,
         onDestinationSelected: _onDestinationSelected,
@@ -61,11 +67,7 @@ class _HomeViewState extends State<HomeView> {
       case 0:
         return const _WelcomeSection();
       case 1:
-        return const _ModulePlaceholder(
-          title: 'Clientes',
-          description:
-              'Aqui se mostrara el control de clientes (socios cliente) con CRUD y sincronizacion offline.',
-        );
+        return const ClientsView();
       case 2:
         return const _ModulePlaceholder(
           title: 'Proveedores',
@@ -124,7 +126,7 @@ class _WelcomeSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthViewModel>();
-    final isOffline = context.select<ProductsViewModel, bool>(
+    final isOffline = context.select<ConnectivityViewModel, bool>(
       (vm) => vm.isOffline,
     );
     final name = auth.userName.trim().isNotEmpty

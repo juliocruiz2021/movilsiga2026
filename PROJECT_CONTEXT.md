@@ -199,3 +199,72 @@ Notas:
   - `Oscuro` mantiene `ThemeMode.dark`.
 - Tema por defecto en instalacion nueva:
   - `Celeste` (`theme_preference` inicia/fallback en `sky`).
+
+### 2026-02-12 (alineacion backend APISIGA - defaults de empresa)
+- En APISIGA se ajusta el seeder de provision para que toda empresa nueva nazca con:
+  - `Sin Ruta` (`R001`) en `rutas`.
+  - vendedores con comportamiento previo (`V001` = `Vendedor general`).
+- Implicacion para Flutter:
+  - al sincronizar catalogos iniciales de rutas/vendedores se espera disponibilidad de esos registros base en tenants nuevos.
+
+### 2026-02-12 (paginacion uniforme en Flutter)
+- Decision aplicada: donde haya paginacion en Flutter se usa tamano fijo de **20 registros por pagina**.
+- Implementacion en `ProductsViewModel`:
+  - se centraliza constante `static const int _paginationPageSize = 20`.
+  - listado de productos online/local usa ese tamano.
+  - paginacion interna de sincronizacion (`_fetchPaged`) tambien usa 20.
+  - carga de categorias online se ajusta a paginacion real por paginas (ya no una sola llamada con `per_page=100`), evitando truncar datos cuando haya mas de 20 categorias.
+- Validacion:
+  - `flutter test` en verde despues del paso 1 y paso 2.
+
+### 2026-02-12 (inicio modulo clientes en Flutter)
+- Se reemplaza placeholder de `Clientes` en Home por vista funcional inicial conectada a API.
+- Nuevo modulo cliente (fase 1):
+  - modelo `Client` para parseo de socios-cliente desde backend.
+  - `ClientsViewModel` con:
+    - carga desde endpoint `/api/{empresa}/clientes`,
+    - paginacion de 20 registros por pagina,
+    - busqueda por texto (`q`),
+    - paginado incremental (`loadMore`),
+    - estado online/offline y manejo de errores.
+  - `ClientsView` con:
+    - buscador,
+    - listado visual de clientes,
+    - `pull-to-refresh`,
+    - indicador de carga incremental,
+    - validacion de permisos (`socios.view` o `clientes.view`).
+- Integracion tecnica:
+  - provider agregado en `main.dart` mediante `ChangeNotifierProxyProvider2`.
+  - `HomeView` ya renderiza `ClientsView` cuando se selecciona modulo clientes.
+- Validacion:
+  - `flutter test` en verde.
+
+### 2026-02-12 (clientes + indicador global de conectividad)
+- Se crea pantalla de alta de clientes `ClientFormView` con campos iniciales del socio-cliente:
+  - codigo (autogenerado si se deja vacio),
+  - nombre,
+  - nombre comercial,
+  - NIT, DUI, pasaporte,
+  - telefono, celular, correo,
+  - direccion, GPS,
+  - codigo giro, `giro_id`, `municipio_id`,
+  - bandera `tambien es proveedor`.
+- `ClientsViewModel` agrega flujo de guardado:
+  - `createClient()` usando `POST /api/{empresa}/socios`,
+  - manejo de estado `isSaving` y `saveErrorMessage`,
+  - insercion del nuevo cliente en la lista actual cuando coincide con filtros.
+- `ClientsView` ahora incluye accion `Nuevo` y navega al formulario para crear clientes desde la app movil.
+- Se centraliza conectividad en `ConnectivityViewModel` para uso transversal (sin depender de estado del modulo productos).
+- Se agrega widget reutilizable `OfflineCloudIcon` y se aplica de forma uniforme:
+  - `LoginView` (esquina superior),
+  - `HomeView` (AppBar),
+  - `ProductsView` (AppBar),
+  - `ProductDetailView` (junto al back),
+  - `SettingsView` (AppBar),
+  - `ClientFormView` (AppBar).
+- Regla de UX aplicada:
+  - con internet: icono oculto,
+  - sin internet: icono de nube `cloud_off` visible en rojo.
+- Validacion:
+  - `flutter test` en verde,
+  - `flutter analyze` sin errores nuevos (se mantienen avisos preexistentes en productos/detalle).

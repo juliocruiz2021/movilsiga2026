@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../viewmodels/settings_viewmodel.dart';
 import 'widgets/app_themed_background.dart';
+import 'widgets/offline_cloud_icon.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -40,7 +41,10 @@ class _SettingsViewState extends State<SettingsView> {
     final palette = context.palette;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Configuracion')),
+      appBar: AppBar(
+        title: const Text('Configuracion'),
+        actions: const [OfflineCloudIcon()],
+      ),
       body: AppThemedBackground(
         child: SafeArea(
           child: Consumer<SettingsViewModel>(

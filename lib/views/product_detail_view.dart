@@ -8,6 +8,7 @@ import '../theme/app_theme.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/products_viewmodel.dart';
 import 'widgets/app_themed_background.dart';
+import 'widgets/offline_cloud_icon.dart';
 
 class ProductDetailView extends StatefulWidget {
   const ProductDetailView({super.key, required this.product});
@@ -122,20 +123,15 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     return Scaffold(
       appBar: AppBar(
         leadingWidth: 88,
-        leading: Consumer<ProductsViewModel>(
-          builder: (context, vm, _) {
-            return Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const BackButton(),
-                if (vm.isOffline)
-                  Padding(
-                    padding: EdgeInsets.only(left: 4),
-                    child: Icon(Icons.cloud_off, color: palette.danger),
-                  ),
-              ],
-            );
-          },
+        leading: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            BackButton(),
+            OfflineCloudIcon(
+              padding: EdgeInsets.only(left: 2, right: 0),
+              size: 20,
+            ),
+          ],
         ),
         title: Text(_product.nombre),
       ),
