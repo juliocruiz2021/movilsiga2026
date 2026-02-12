@@ -22,14 +22,6 @@ class HomeView extends StatefulWidget {
 }
 
 class _HomeViewState extends State<HomeView> {
-  late int _selectedIndex;
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedIndex = widget.initialIndex;
-  }
-
   @override
   Widget build(BuildContext context) {
     final titles = <String>[
@@ -42,11 +34,11 @@ class _HomeViewState extends State<HomeView> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(titles[_selectedIndex]),
+        title: Text(titles[widget.initialIndex]),
         actions: const [OfflineCloudIcon()],
       ),
       drawer: MainNavigationDrawer(
-        selectedIndex: _selectedIndex,
+        selectedIndex: widget.initialIndex,
         onDestinationSelected: _onDestinationSelected,
         onOpenSettings: _openSettings,
         onLogout: _logout,
@@ -63,7 +55,7 @@ class _HomeViewState extends State<HomeView> {
   }
 
   Widget _buildSection(BuildContext context) {
-    switch (_selectedIndex) {
+    switch (widget.initialIndex) {
       case 0:
         return const _WelcomeSection();
       case 1:
@@ -87,6 +79,7 @@ class _HomeViewState extends State<HomeView> {
 
   void _onDestinationSelected(int index) {
     Navigator.of(context).pop();
+    if (index == widget.initialIndex) return;
     if (index == MainMenuIndex.products) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
@@ -97,7 +90,9 @@ class _HomeViewState extends State<HomeView> {
       );
       return;
     }
-    setState(() => _selectedIndex = index);
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => HomeView(initialIndex: index)),
+    );
   }
 
   void _openSettings() {
