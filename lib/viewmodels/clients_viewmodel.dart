@@ -133,6 +133,7 @@ class ClientsViewModel extends ChangeNotifier {
     String? codigoGiro,
     int? giroId,
     int? municipioId,
+    int? rutaId,
     bool esProveedor = false,
   }) async {
     debugTrace(
@@ -190,6 +191,7 @@ class ClientsViewModel extends ChangeNotifier {
       if (_hasValue(codigoGiro)) 'codigo_giro': codigoGiro!.trim(),
       if (giroId case final id) 'giro_id': id,
       if (municipioId case final id) 'municipio_id': id,
+      if (rutaId case final id) 'ruta_id': id,
     };
 
     final uri = config.buildUri('/${config.companyCode}/socios');
@@ -255,6 +257,7 @@ class ClientsViewModel extends ChangeNotifier {
     String? codigoGiro,
     int? giroId,
     int? municipioId,
+    int? rutaId,
     bool esProveedor = false,
   }) async {
     debugTrace(
@@ -307,6 +310,7 @@ class ClientsViewModel extends ChangeNotifier {
       'codigo_giro': _nullableText(codigoGiro),
       'giro_id': giroId,
       'municipio_id': municipioId,
+      'ruta_id': rutaId,
     };
 
     final uri = config.buildUri('/${config.companyCode}/socios/$clientId');

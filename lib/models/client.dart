@@ -15,6 +15,9 @@ class Client {
     this.correo,
     this.direccion,
     this.gpsUbicacion,
+    this.rutaId,
+    this.rutaCodigo,
+    this.rutaNombre,
     this.updatedAt,
   });
 
@@ -33,6 +36,9 @@ class Client {
   final String? correo;
   final String? direccion;
   final String? gpsUbicacion;
+  final int? rutaId;
+  final String? rutaCodigo;
+  final String? rutaNombre;
   final DateTime? updatedAt;
 
   String get primaryContact {
@@ -42,7 +48,18 @@ class Client {
     return '';
   }
 
+  String get routeLabel {
+    if ((rutaNombre ?? '').trim().isNotEmpty) return rutaNombre!.trim();
+    if ((rutaCodigo ?? '').trim().isNotEmpty) return rutaCodigo!.trim();
+    return 'Sin Ruta';
+  }
+
   factory Client.fromJson(Map<String, dynamic> json) {
+    final rutaRaw = json['ruta'];
+    final ruta = rutaRaw is Map<String, dynamic>
+        ? rutaRaw
+        : (rutaRaw is Map ? rutaRaw.map((k, v) => MapEntry('$k', v)) : null);
+
     return Client(
       id: _toInt(json['id']) ?? 0,
       codigo: json['codigo']?.toString() ?? '',
@@ -59,6 +76,9 @@ class Client {
       correo: _toStringOrNull(json['correo']),
       direccion: _toStringOrNull(json['direccion']),
       gpsUbicacion: _toStringOrNull(json['gps_ubicacion']),
+      rutaId: _toInt(json['ruta_id']),
+      rutaCodigo: _toStringOrNull(ruta?['codigo']),
+      rutaNombre: _toStringOrNull(ruta?['nombre']),
       updatedAt: _toDate(json['updated_at']),
     );
   }

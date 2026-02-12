@@ -336,3 +336,68 @@ Notas:
   - header responsivo con `LayoutBuilder`,
   - boton `Nuevo` envuelto en `ConstrainedBox(maxWidth: 180)`,
   - evita propagacion de constraints no acotadas en layouts tipo `Row`.
+
+### 2026-02-12 (refactor clientes sin sucursales de socio)
+- Cambio de arquitectura aplicado para clientes en Flutter:
+  - se elimina el modulo de sucursales por cliente (`ClientBranch`, `ClientBranchesViewModel`, `ClientBranchesView`, `ClientBranchFormView`).
+  - la app ya no consume endpoints `socios-sucursales`.
+- `ClientsView` cambia de formato ficha/card a **formato listado por linea** y mantiene tema global (paleta, tipografia y botones):
+  - bloque izquierdo: `nombre` (linea principal) + `nombre_comercial`/`codigo` (linea secundaria).
+  - bloque derecho: telefono y nombre de ruta.
+- Interacciones nuevas del listado:
+  - tocar nombre/nombre comercial -> abre ficha (`ClientFormView`).
+  - tocar telefono -> abre marcador del dispositivo (`tel:`).
+  - tocar ruta -> abre mapa externo con la ubicacion GPS del cliente.
+- `Client` y `ClientsViewModel` se alinean al nuevo contrato de socios:
+  - soporte de `ruta_id` y relacion `ruta` (`ruta.codigo`, `ruta.nombre`).
+  - envio de `ruta_id` en crear/editar cliente cuando se captura.
+- `ClientFormView` agrega campo `Ruta ID` y corrige permisos de guardado:
+  - crear usa permisos `socios.create/clientes.create`.
+  - editar usa permisos `socios.update/clientes.update`.
+- Validacion ejecutada:
+  - `flutter test` en verde.
+  - `flutter analyze` sin errores nuevos de clientes; persisten warnings preexistentes en `products_view.dart` y `product_detail_view.dart`.
+
+### 2026-02-12 (estandar visual de modulos en formato listado)
+- Se define estandar UI para modulos operativos en movil cuando se trabaja en modo listado:
+  - toolbar superior compacta (busqueda + acciones primarias por icono segun permisos),
+  - contenido en filas compactas (no ficha grande por defecto),
+  - pie con contador de registros mostrados,
+  - mismo tema global (colores, tipografia, espaciados y estilo de botones/controles).
+- Este patron debe reutilizarse en los siguientes modulos (clientes, proveedores, pedidos, etc.) para mantener consistencia.
+
+### 2026-02-12 (clientes estandarizado + acciones telefono/whatsapp + GPS)
+- `ClientsView` se alinea al formato listado estandar del proyecto:
+  - busqueda compacta,
+  - accion de refrescar,
+  - accion de crear (`+`) por permiso,
+  - filas de cliente con bloque izquierdo (nombre + nombre comercial/codigo) y bloque derecho (telefono + ruta),
+  - contador inferior de items mostrados.
+- Interacciones por fila:
+  - tocar nombre/nombre comercial abre ficha del cliente,
+  - icono telefono abre marcador,
+  - icono WhatsApp abre WhatsApp (app, fallback web),
+  - tocar ruta abre mapa solo cuando hay `gps_ubicacion`; si no hay GPS, no ejecuta accion.
+- Ficha de cliente (`ClientFormView`) ampliada para captura de ubicacion:
+  - boton **Ubicacion del dispositivo** (Geolocator),
+  - boton **Seleccionar en mapa** (picker visual con mapa OSM),
+  - resultado en formato `lat,lng` dentro del campo `GPS`.
+- Soporte tecnico agregado:
+  - nueva vista `LocationPickerView` para seleccion en mapa,
+  - dependencias: `geolocator`, `flutter_map`, `latlong2`,
+  - permisos de ubicacion agregados en Android/iOS.
+- Validacion ejecutada:
+  - `flutter analyze lib/views/clients_view.dart lib/views/client_form_view.dart lib/views/location_picker_view.dart` en verde,
+  - `flutter test` en verde.
+
+### 2026-02-12 (cierre operativo clientes - estandar listado)
+- Se consolida decision UX para modulos moviles: usar formato listado estandar (toolbar compacta, filas operativas, contador de items mostrados) respetando tema global.
+- Modulo `Clientes` queda alineado al estandar:
+  - fila compacta con nombre/nombre comercial,
+  - telefono con acciones directas (llamar + WhatsApp),
+  - ruta clickeable solo cuando existe GPS,
+  - sin accion al tocar ruta si no hay `gps_ubicacion`.
+- Ficha cliente agrega captura de coordenadas por dos vias:
+  - ubicacion actual del dispositivo,
+  - seleccion manual en mapa.
+- Nota de continuidad: este mismo patron visual/funcional se debe reutilizar en Proveedores y Pedidos para consistencia de experiencia en ruta.

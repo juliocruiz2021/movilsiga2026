@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/client.dart';
 import '../theme/app_theme.dart';
 import '../utils/debug_tools.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/clients_viewmodel.dart';
-import 'client_branches_view.dart';
 import 'client_form_view.dart';
 
 class ClientsView extends StatefulWidget {
@@ -87,69 +87,14 @@ class _ClientsViewState extends State<ClientsView> {
 
         return Column(
           children: [
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final compact = constraints.maxWidth < 420;
-                final title = Text(
-                  'Clientes',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: palette.textStrong,
-                  ),
-                );
-
-                final action = canCreateClients
-                    ? ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 180),
-                        child: ElevatedButton.icon(
-                          onPressed: vm.isSaving
-                              ? null
-                              : () => _openCreateClient(context),
-                          icon: const Icon(Icons.person_add_alt_1_outlined),
-                          label: const Text('Nuevo'),
-                        ),
-                      )
-                    : const SizedBox.shrink();
-
-                if (compact) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      title,
-                      if (canCreateClients) const SizedBox(height: 8),
-                      if (canCreateClients)
-                        Align(alignment: Alignment.centerLeft, child: action),
-                    ],
-                  );
-                }
-
-                return Row(
-                  children: [
-                    Expanded(child: title),
-                    if (canCreateClients) action,
-                  ],
-                );
-              },
+            _ClientsToolbar(
+              searchController: _searchController,
+              canCreateClients: canCreateClients,
+              onSearch: vm.updateSearch,
+              onCreate: () => _openCreateClient(context),
+              onRefresh: vm.refresh,
             ),
             const SizedBox(height: 10),
-            TextField(
-              controller: _searchController,
-              onChanged: vm.updateSearch,
-              decoration: InputDecoration(
-                hintText: 'Buscar cliente por codigo, nombre, NIT o correo',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchController.text.isEmpty
-                    ? null
-                    : IconButton(
-                        onPressed: () {
-                          _searchController.clear();
-                          vm.updateSearch('');
-                        },
-                        icon: const Icon(Icons.close),
-                      ),
-              ),
-            ),
-            const SizedBox(height: 12),
             Expanded(
               child: _buildBody(
                 context,
@@ -158,6 +103,8 @@ class _ClientsViewState extends State<ClientsView> {
                 canDeleteClients: canDeleteClients,
               ),
             ),
+            const SizedBox(height: 8),
+            _ListCounter(count: vm.clients.length),
           ],
         );
       },
@@ -199,8 +146,9 @@ class _ClientsViewState extends State<ClientsView> {
       onRefresh: vm.refresh,
       child: ListView.separated(
         controller: _scrollController,
+        padding: const EdgeInsets.only(bottom: 4),
         itemCount: itemCount,
-        separatorBuilder: (context, index) => const SizedBox(height: 10),
+        separatorBuilder: (_, _) => const SizedBox(height: 10),
         itemBuilder: (context, index) {
           if (index >= vm.clients.length) {
             return const Padding(
@@ -208,14 +156,20 @@ class _ClientsViewState extends State<ClientsView> {
               child: Center(child: CircularProgressIndicator()),
             );
           }
+
           final client = vm.clients[index];
-          return _ClientCard(
+          return _ClientListRow(
             client: client,
-            canEdit: canUpdateClients,
             canDelete: canDeleteClients,
-            onOpenBranches: () => _openClientBranches(context, client),
-            onEdit: () => _openEditClient(context, client),
-            onDelete: () => _confirmDeleteClient(context, client),
+            onOpenDetail: canUpdateClients
+                ? () => _openEditClient(context, client)
+                : () => _openClientReadOnly(context, client),
+            onDelete: canDeleteClients
+                ? () => _confirmDeleteClient(context, client)
+                : null,
+            onCall: () => _callClient(client),
+            onWhatsApp: () => _openWhatsApp(client),
+            onOpenMap: () => _openRouteInMap(client),
           );
         },
       ),
@@ -242,11 +196,45 @@ class _ClientsViewState extends State<ClientsView> {
     await context.read<ClientsViewModel>().refresh();
   }
 
-  Future<void> _openClientBranches(BuildContext context, Client client) async {
-    debugTrace('CLIENTS_UI', 'Open branches for client id=${client.id}');
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => ClientBranchesView(client: client)),
+  Future<void> _openClientReadOnly(BuildContext context, Client client) async {
+    debugTrace('CLIENTS_UI', 'Open read-only client id=${client.id}');
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (_) => ClientFormView(client: client)),
     );
+  }
+
+  Future<void> _callClient(Client client) async {
+    final phone = _dialPhone(client);
+    if (phone == null) return;
+
+    final uri = Uri(scheme: 'tel', path: phone);
+    debugTrace('CLIENTS_UI', 'Dialing client id=${client.id} phone=$phone');
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  Future<void> _openWhatsApp(Client client) async {
+    final phone = _whatsAppPhone(client);
+    if (phone == null) return;
+
+    final appUri = Uri.parse('whatsapp://send?phone=$phone');
+    if (await launchUrl(appUri, mode: LaunchMode.externalApplication)) {
+      return;
+    }
+
+    final webUri = Uri.parse('https://wa.me/$phone');
+    await launchUrl(webUri, mode: LaunchMode.externalApplication);
+  }
+
+  Future<void> _openRouteInMap(Client client) async {
+    final gps = client.gpsUbicacion?.trim();
+    if (gps == null || gps.isEmpty) return;
+
+    final query = Uri.encodeComponent(gps);
+    final uri = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=$query',
+    );
+    debugTrace('CLIENTS_UI', 'Open map for client id=${client.id} gps=$gps');
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   Future<void> _confirmDeleteClient(BuildContext context, Client client) async {
@@ -289,136 +277,366 @@ class _ClientsViewState extends State<ClientsView> {
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
   }
+
+  String? _dialPhone(Client client) {
+    final phone = _bestPhoneRaw(client);
+    if (phone == null) return null;
+
+    final cleaned = phone.replaceAll(RegExp(r'[^\d+]'), '');
+    return cleaned.isEmpty ? null : cleaned;
+  }
+
+  String? _whatsAppPhone(Client client) {
+    final phone = _bestPhoneRaw(client);
+    if (phone == null) return null;
+
+    var digits = phone.replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) return null;
+    if (digits.length == 8) {
+      digits = '503$digits';
+    }
+    return digits;
+  }
+
+  String? _bestPhoneRaw(Client client) {
+    final celular = client.celular?.trim();
+    if (celular != null && celular.isNotEmpty) return celular;
+    final telefono = client.telefono?.trim();
+    if (telefono != null && telefono.isNotEmpty) return telefono;
+    return null;
+  }
 }
 
-class _ClientCard extends StatelessWidget {
-  const _ClientCard({
+class _ClientsToolbar extends StatefulWidget {
+  const _ClientsToolbar({
+    required this.searchController,
+    required this.canCreateClients,
+    required this.onSearch,
+    required this.onCreate,
+    required this.onRefresh,
+  });
+
+  final TextEditingController searchController;
+  final bool canCreateClients;
+  final ValueChanged<String> onSearch;
+  final VoidCallback onCreate;
+  final Future<void> Function() onRefresh;
+
+  @override
+  State<_ClientsToolbar> createState() => _ClientsToolbarState();
+}
+
+class _ClientsToolbarState extends State<_ClientsToolbar> {
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: widget.searchController,
+            onChanged: (value) {
+              setState(() {});
+              widget.onSearch(value);
+            },
+            decoration: InputDecoration(
+              hintText: 'Buscar cliente',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: widget.searchController.text.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () {
+                        widget.searchController.clear();
+                        setState(() {});
+                        widget.onSearch('');
+                      },
+                    ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              filled: true,
+              fillColor: palette.surface,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        IconButton(
+          onPressed: widget.onRefresh,
+          icon: const Icon(Icons.refresh),
+          tooltip: 'Actualizar',
+        ),
+        if (widget.canCreateClients)
+          IconButton(
+            onPressed: widget.onCreate,
+            icon: const Icon(Icons.add_circle_outline),
+            tooltip: 'Nuevo cliente',
+          ),
+      ],
+    );
+  }
+}
+
+class _ClientListRow extends StatelessWidget {
+  const _ClientListRow({
     required this.client,
-    required this.onOpenBranches,
-    required this.canEdit,
+    required this.onOpenDetail,
+    required this.onCall,
+    required this.onWhatsApp,
+    required this.onOpenMap,
     required this.canDelete,
-    this.onEdit,
     this.onDelete,
   });
 
   final Client client;
-  final VoidCallback onOpenBranches;
-  final bool canEdit;
+  final VoidCallback onOpenDetail;
+  final VoidCallback onCall;
+  final VoidCallback onWhatsApp;
+  final VoidCallback onOpenMap;
   final bool canDelete;
-  final VoidCallback? onEdit;
   final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final palette = context.palette;
+    final subtitle = (client.nombreComercial ?? '').trim().isNotEmpty
+        ? client.nombreComercial!.trim()
+        : client.codigo;
+    final phone = _phoneLabel(client);
+    final hasPhone = phone != '-';
+    final hasGps = (client.gpsUbicacion ?? '').trim().isNotEmpty;
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: palette.surface.withValues(alpha: 0.95),
+        color: palette.surface,
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: palette.shadow.withValues(alpha: 0.05),
+            color: palette.shadow.withValues(alpha: 0.04),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
         ],
       ),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  client.nombre,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: palette.textStrong,
-                  ),
+          Expanded(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: onOpenDetail,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      client.nombre,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: palette.textStrong,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: palette.textMuted,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Text(
-                client.codigo,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: palette.textMuted,
-                ),
-              ),
-            ],
+            ),
           ),
-          const SizedBox(height: 8),
-          _InfoLine(label: 'NIT', value: client.nit ?? '-'),
-          _InfoLine(
-            label: 'Contacto',
-            value: client.primaryContact.isEmpty ? '-' : client.primaryContact,
-          ),
-          _InfoLine(label: 'Direccion', value: client.direccion ?? '-'),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              OutlinedButton.icon(
-                onPressed: onOpenBranches,
-                icon: const Icon(Icons.account_tree_outlined, size: 18),
-                label: const Text('Sucursales'),
-              ),
-              if (canEdit)
-                OutlinedButton.icon(
-                  onPressed: onEdit,
-                  icon: const Icon(Icons.edit_outlined, size: 18),
-                  label: const Text('Editar'),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 170,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        phone,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: hasPhone
+                              ? palette.textStrong
+                              : palette.textMuted,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    _IconAction(
+                      icon: Icons.phone_outlined,
+                      color: palette.primary,
+                      onTap: hasPhone ? onCall : null,
+                      tooltip: 'Llamar',
+                    ),
+                    _IconAction(
+                      icon: Icons.chat_outlined,
+                      color: const Color(0xFF22C55E),
+                      onTap: hasPhone ? onWhatsApp : null,
+                      tooltip: 'WhatsApp',
+                    ),
+                  ],
                 ),
-              if (canDelete)
-                OutlinedButton.icon(
-                  onPressed: onDelete,
-                  icon: Icon(
-                    Icons.delete_outline,
-                    size: 18,
-                    color: palette.danger,
-                  ),
-                  label: Text(
-                    'Eliminar',
-                    style: TextStyle(color: palette.danger),
-                  ),
+                const SizedBox(height: 4),
+                _ActionLink(
+                  icon: Icons.route_outlined,
+                  label: client.routeLabel,
+                  onTap: hasGps ? onOpenMap : null,
                 ),
-            ],
+              ],
+            ),
           ),
+          if (canDelete)
+            PopupMenuButton<_ClientMenuAction>(
+              tooltip: 'Opciones',
+              onSelected: (action) {
+                switch (action) {
+                  case _ClientMenuAction.open:
+                    onOpenDetail();
+                    break;
+                  case _ClientMenuAction.delete:
+                    onDelete?.call();
+                    break;
+                }
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(
+                  value: _ClientMenuAction.open,
+                  child: Text('Abrir ficha'),
+                ),
+                PopupMenuItem(
+                  value: _ClientMenuAction.delete,
+                  child: Text('Eliminar'),
+                ),
+              ],
+            ),
         ],
+      ),
+    );
+  }
+
+  String _phoneLabel(Client client) {
+    final celular = client.celular?.trim();
+    if (celular != null && celular.isNotEmpty) return celular;
+    final telefono = client.telefono?.trim();
+    if (telefono != null && telefono.isNotEmpty) return telefono;
+    return '-';
+  }
+}
+
+enum _ClientMenuAction { open, delete }
+
+class _IconAction extends StatelessWidget {
+  const _IconAction({
+    required this.icon,
+    required this.color,
+    required this.tooltip,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String tooltip;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      onPressed: onTap,
+      visualDensity: VisualDensity.compact,
+      iconSize: 18,
+      splashRadius: 18,
+      tooltip: tooltip,
+      icon: Icon(
+        icon,
+        color: onTap == null ? color.withValues(alpha: 0.35) : color,
       ),
     );
   }
 }
 
-class _InfoLine extends StatelessWidget {
-  const _InfoLine({required this.label, required this.value});
+class _ActionLink extends StatelessWidget {
+  const _ActionLink({required this.icon, required this.label, this.onTap});
 
+  final IconData icon;
   final String label;
-  final String value;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final palette = context.palette;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: RichText(
-        text: TextSpan(
-          style: theme.textTheme.bodySmall?.copyWith(color: palette.textMuted),
+    final enabled = onTap != null;
+    final color = enabled ? palette.primary : palette.textMuted;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            TextSpan(
-              text: '$label: ',
-              style: const TextStyle(fontWeight: FontWeight.w700),
+            Icon(icon, size: 15, color: color),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.right,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
-            TextSpan(text: value),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ListCounter extends StatelessWidget {
+  const _ListCounter({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final theme = Theme.of(context);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: palette.surface.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        '$count items mostrados',
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: palette.textMuted,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );

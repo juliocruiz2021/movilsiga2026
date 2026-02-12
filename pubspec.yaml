@@ -48,6 +48,10 @@ dependencies:
   drift_flutter: ^0.2.8
   connectivity_plus: ^6.1.2
   flutter_cache_manager: ^3.3.2
+  url_launcher: ^6.3.1
+  geolocator: ^13.0.2
+  flutter_map: ^8.2.0
+  latlong2: ^0.9.1
 
 dev_dependencies:
   flutter_test:

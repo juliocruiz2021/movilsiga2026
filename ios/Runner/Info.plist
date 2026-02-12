@@ -51,5 +51,9 @@
 	<string>Necesitamos guardar la foto seleccionada para el producto.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Necesitamos usar la camara para tomar la foto del producto.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Necesitamos tu ubicacion para registrar la posicion GPS del cliente.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Necesitamos tu ubicacion para registrar la posicion GPS del cliente.</string>
 </dict>
 </plist>
