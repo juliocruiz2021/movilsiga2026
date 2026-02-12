@@ -8,14 +8,30 @@ import 'package:http/http.dart' as http;
 import '../constants/pagination.dart';
 import '../models/api_config.dart';
 import '../models/client.dart';
+import '../models/client_branch.dart';
 import 'auth_viewmodel.dart';
 import 'settings_viewmodel.dart';
 
-class ClientsViewModel extends ChangeNotifier {
-  SettingsViewModel? _settings;
-  AuthViewModel? _auth;
+class ClientBranchesViewModel extends ChangeNotifier {
+  ClientBranchesViewModel({
+    required SettingsViewModel settings,
+    required AuthViewModel auth,
+    required Client client,
+  }) : _settings = settings,
+       _auth = auth,
+       _client = client {
+    _connectivitySub = Connectivity().onConnectivityChanged.listen(
+      _handleConnectivity,
+    );
+    loadInitial();
+  }
 
-  final List<Client> _clients = [];
+  final SettingsViewModel _settings;
+  final AuthViewModel _auth;
+  final Client _client;
+  final List<ClientBranch> _branches = [];
+
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
   String _searchQuery = '';
   bool _isLoading = false;
   bool _isLoadingMore = false;
@@ -26,10 +42,9 @@ class ClientsViewModel extends ChangeNotifier {
   String? _saveErrorMessage;
   int _currentPage = 1;
   int _lastPage = 1;
-  bool _initialized = false;
-  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
 
-  List<Client> get clients => List.unmodifiable(_clients);
+  Client get client => _client;
+  List<ClientBranch> get branches => List.unmodifiable(_branches);
   String get searchQuery => _searchQuery;
   bool get isLoading => _isLoading;
   bool get isLoadingMore => _isLoadingMore;
@@ -39,18 +54,6 @@ class ClientsViewModel extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   String? get saveErrorMessage => _saveErrorMessage;
   bool get hasMore => _currentPage < _lastPage;
-
-  void updateDependencies(SettingsViewModel settings, AuthViewModel auth) {
-    _settings = settings;
-    _auth = auth;
-    _connectivitySub ??= Connectivity().onConnectivityChanged.listen(
-      _handleConnectivity,
-    );
-    if (!_initialized) {
-      _initialized = true;
-      loadInitial();
-    }
-  }
 
   @override
   void dispose() {
@@ -94,35 +97,26 @@ class ClientsViewModel extends ChangeNotifier {
 
   Future<void> refresh() => loadInitial();
 
-  Future<Client?> createClient({
-    required String codigo,
+  Future<ClientBranch?> createBranch({
     required String nombre,
-    String? nombreComercial,
-    String? nit,
-    String? dui,
-    String? pasaporte,
-    String? telefono,
-    String? celular,
-    String? correo,
+    String? codigo,
     String? direccion,
     String? gpsUbicacion,
-    String? codigoGiro,
-    int? giroId,
-    int? municipioId,
-    bool esProveedor = false,
+    String? telefono,
+    String? correo,
+    int? rutaId,
   }) async {
     final config = _currentConfig();
-    final auth = _auth;
-    if (config == null || auth == null) {
-      _saveErrorMessage = 'Configura la API antes de crear clientes.';
+    if (config == null) {
+      _saveErrorMessage = 'Configura la API antes de crear sucursales.';
       notifyListeners();
       return null;
     }
 
-    if (auth.token.isEmpty) {
-      await auth.reloadFromStorage();
+    if (_auth.token.isEmpty) {
+      await _auth.reloadFromStorage();
     }
-    if (auth.token.isEmpty) {
+    if (_auth.token.isEmpty) {
       _saveErrorMessage = 'No hay sesion activa.';
       notifyListeners();
       return null;
@@ -131,7 +125,7 @@ class ClientsViewModel extends ChangeNotifier {
     final hasConnection = await _hasConnection();
     if (!hasConnection) {
       _setOffline(true);
-      _saveErrorMessage = 'Sin internet para crear clientes.';
+      _saveErrorMessage = 'Sin internet para crear sucursales.';
       notifyListeners();
       return null;
     }
@@ -140,59 +134,44 @@ class ClientsViewModel extends ChangeNotifier {
     _saveErrorMessage = null;
     notifyListeners();
 
-    final normalizedCode = codigo.trim().isEmpty
-        ? _generateClientCode()
-        : codigo.trim();
     final payload = <String, dynamic>{
-      'codigo': normalizedCode,
+      'socio_id': _client.id,
       'nombre': nombre.trim(),
-      'es_cliente': true,
-      'es_proveedor': esProveedor,
+      'codigo': _nullableText(codigo),
+      'direccion': _nullableText(direccion),
+      'gps_ubicacion': _nullableText(gpsUbicacion),
+      'telefono': _nullableText(telefono),
+      'correo': _nullableText(correo),
+      'ruta_id': rutaId,
       'activo': true,
-      if (_hasValue(nombreComercial))
-        'nombre_comercial': nombreComercial!.trim(),
-      if (_hasValue(nit)) 'nit': nit!.trim(),
-      if (_hasValue(dui)) 'dui': dui!.trim(),
-      if (_hasValue(pasaporte)) 'pasaporte': pasaporte!.trim(),
-      if (_hasValue(telefono)) 'telefono': telefono!.trim(),
-      if (_hasValue(celular)) 'celular': celular!.trim(),
-      if (_hasValue(correo)) 'correo': correo!.trim(),
-      if (_hasValue(direccion)) 'direccion': direccion!.trim(),
-      if (_hasValue(gpsUbicacion)) 'gps_ubicacion': gpsUbicacion!.trim(),
-      if (_hasValue(codigoGiro)) 'codigo_giro': codigoGiro!.trim(),
-      if (giroId case final id) 'giro_id': id,
-      if (municipioId case final id) 'municipio_id': id,
     };
 
-    final uri = config.buildUri('/${config.companyCode}/socios');
-
+    final uri = config.buildUri('/${config.companyCode}/socios-sucursales');
     try {
       final response = await http.post(
         uri,
-        headers: _authHeaders(auth),
+        headers: _authHeaders(),
         body: jsonEncode(payload),
       );
       if (response.statusCode < 200 || response.statusCode >= 300) {
         _saveErrorMessage = _extractErrorMessage(response.body);
         return null;
       }
-
       _setOffline(false);
       final data = _decodeJson(response.body);
-      final socioRaw = data['socio'];
-      if (socioRaw is! Map) {
-        _saveErrorMessage = 'No se pudo procesar el cliente creado.';
+      final raw = data['socio_sucursal'];
+      if (raw is! Map) {
+        _saveErrorMessage = 'No se pudo procesar la sucursal creada.';
         return null;
       }
-
-      final created = Client.fromJson(
-        socioRaw.map((key, value) => MapEntry(key.toString(), value)),
+      final created = ClientBranch.fromJson(
+        raw.map((key, value) => MapEntry(key.toString(), value)),
       );
       _upsertInCurrentList(created);
       return created;
     } catch (_) {
       _setOffline(true);
-      _saveErrorMessage = 'No se pudo crear el cliente.';
+      _saveErrorMessage = 'No se pudo crear la sucursal.';
       return null;
     } finally {
       _isSaving = false;
@@ -200,36 +179,27 @@ class ClientsViewModel extends ChangeNotifier {
     }
   }
 
-  Future<Client?> updateClient({
-    required int clientId,
-    required String codigo,
+  Future<ClientBranch?> updateBranch({
+    required int branchId,
     required String nombre,
-    String? nombreComercial,
-    String? nit,
-    String? dui,
-    String? pasaporte,
-    String? telefono,
-    String? celular,
-    String? correo,
+    String? codigo,
     String? direccion,
     String? gpsUbicacion,
-    String? codigoGiro,
-    int? giroId,
-    int? municipioId,
-    bool esProveedor = false,
+    String? telefono,
+    String? correo,
+    int? rutaId,
   }) async {
     final config = _currentConfig();
-    final auth = _auth;
-    if (config == null || auth == null) {
-      _saveErrorMessage = 'Configura la API antes de editar clientes.';
+    if (config == null) {
+      _saveErrorMessage = 'Configura la API antes de editar sucursales.';
       notifyListeners();
       return null;
     }
 
-    if (auth.token.isEmpty) {
-      await auth.reloadFromStorage();
+    if (_auth.token.isEmpty) {
+      await _auth.reloadFromStorage();
     }
-    if (auth.token.isEmpty) {
+    if (_auth.token.isEmpty) {
       _saveErrorMessage = 'No hay sesion activa.';
       notifyListeners();
       return null;
@@ -238,7 +208,7 @@ class ClientsViewModel extends ChangeNotifier {
     final hasConnection = await _hasConnection();
     if (!hasConnection) {
       _setOffline(true);
-      _saveErrorMessage = 'Sin internet para editar clientes.';
+      _saveErrorMessage = 'Sin internet para editar sucursales.';
       notifyListeners();
       return null;
     }
@@ -248,52 +218,44 @@ class ClientsViewModel extends ChangeNotifier {
     notifyListeners();
 
     final payload = <String, dynamic>{
-      'codigo': codigo.trim(),
+      'socio_id': _client.id,
       'nombre': nombre.trim(),
-      'es_cliente': true,
-      'es_proveedor': esProveedor,
-      'nombre_comercial': _nullableText(nombreComercial),
-      'nit': _nullableText(nit),
-      'dui': _nullableText(dui),
-      'pasaporte': _nullableText(pasaporte),
-      'telefono': _nullableText(telefono),
-      'celular': _nullableText(celular),
-      'correo': _nullableText(correo),
+      'codigo': _nullableText(codigo),
       'direccion': _nullableText(direccion),
       'gps_ubicacion': _nullableText(gpsUbicacion),
-      'codigo_giro': _nullableText(codigoGiro),
-      'giro_id': giroId,
-      'municipio_id': municipioId,
+      'telefono': _nullableText(telefono),
+      'correo': _nullableText(correo),
+      'ruta_id': rutaId,
     };
 
-    final uri = config.buildUri('/${config.companyCode}/socios/$clientId');
+    final uri = config.buildUri(
+      '/${config.companyCode}/socios-sucursales/$branchId',
+    );
     try {
       final response = await http.put(
         uri,
-        headers: _authHeaders(auth),
+        headers: _authHeaders(),
         body: jsonEncode(payload),
       );
       if (response.statusCode < 200 || response.statusCode >= 300) {
         _saveErrorMessage = _extractErrorMessage(response.body);
         return null;
       }
-
       _setOffline(false);
       final data = _decodeJson(response.body);
-      final socioRaw = data['socio'];
-      if (socioRaw is! Map) {
-        _saveErrorMessage = 'No se pudo procesar el cliente actualizado.';
+      final raw = data['socio_sucursal'];
+      if (raw is! Map) {
+        _saveErrorMessage = 'No se pudo procesar la sucursal actualizada.';
         return null;
       }
-
-      final updated = Client.fromJson(
-        socioRaw.map((key, value) => MapEntry(key.toString(), value)),
+      final updated = ClientBranch.fromJson(
+        raw.map((key, value) => MapEntry(key.toString(), value)),
       );
       _upsertInCurrentList(updated);
       return updated;
     } catch (_) {
       _setOffline(true);
-      _saveErrorMessage = 'No se pudo editar el cliente.';
+      _saveErrorMessage = 'No se pudo editar la sucursal.';
       return null;
     } finally {
       _isSaving = false;
@@ -301,19 +263,18 @@ class ClientsViewModel extends ChangeNotifier {
     }
   }
 
-  Future<bool> deleteClient(int clientId) async {
+  Future<bool> deleteBranch(int branchId) async {
     final config = _currentConfig();
-    final auth = _auth;
-    if (config == null || auth == null) {
-      _saveErrorMessage = 'Configura la API antes de eliminar clientes.';
+    if (config == null) {
+      _saveErrorMessage = 'Configura la API antes de eliminar sucursales.';
       notifyListeners();
       return false;
     }
 
-    if (auth.token.isEmpty) {
-      await auth.reloadFromStorage();
+    if (_auth.token.isEmpty) {
+      await _auth.reloadFromStorage();
     }
-    if (auth.token.isEmpty) {
+    if (_auth.token.isEmpty) {
       _saveErrorMessage = 'No hay sesion activa.';
       notifyListeners();
       return false;
@@ -322,7 +283,7 @@ class ClientsViewModel extends ChangeNotifier {
     final hasConnection = await _hasConnection();
     if (!hasConnection) {
       _setOffline(true);
-      _saveErrorMessage = 'Sin internet para eliminar clientes.';
+      _saveErrorMessage = 'Sin internet para eliminar sucursales.';
       notifyListeners();
       return false;
     }
@@ -330,20 +291,22 @@ class ClientsViewModel extends ChangeNotifier {
     _isDeleting = true;
     _saveErrorMessage = null;
     notifyListeners();
-    final uri = config.buildUri('/${config.companyCode}/socios/$clientId');
+    final uri = config.buildUri(
+      '/${config.companyCode}/socios-sucursales/$branchId',
+    );
 
     try {
-      final response = await http.delete(uri, headers: _authHeaders(auth));
+      final response = await http.delete(uri, headers: _authHeaders());
       if (response.statusCode < 200 || response.statusCode >= 300) {
         _saveErrorMessage = _extractErrorMessage(response.body);
         return false;
       }
       _setOffline(false);
-      _clients.removeWhere((item) => item.id == clientId);
+      _branches.removeWhere((item) => item.id == branchId);
       return true;
     } catch (_) {
       _setOffline(true);
-      _saveErrorMessage = 'No se pudo eliminar el cliente.';
+      _saveErrorMessage = 'No se pudo eliminar la sucursal.';
       return false;
     } finally {
       _isDeleting = false;
@@ -356,16 +319,15 @@ class ClientsViewModel extends ChangeNotifier {
     required bool replaceItems,
   }) async {
     final config = _currentConfig();
-    final auth = _auth;
-    if (config == null || auth == null) {
-      _errorMessage = 'Configura la API antes de cargar clientes.';
+    if (config == null) {
+      _errorMessage = 'Configura la API antes de cargar sucursales.';
       return;
     }
 
-    if (auth.token.isEmpty) {
-      await auth.reloadFromStorage();
+    if (_auth.token.isEmpty) {
+      await _auth.reloadFromStorage();
     }
-    if (auth.token.isEmpty) {
+    if (_auth.token.isEmpty) {
       _errorMessage = 'No hay sesion activa.';
       return;
     }
@@ -373,8 +335,8 @@ class ClientsViewModel extends ChangeNotifier {
     final hasConnection = await _hasConnection();
     if (!hasConnection) {
       _setOffline(true);
-      if (_clients.isEmpty) {
-        _errorMessage = 'Sin internet para cargar clientes.';
+      if (_branches.isEmpty) {
+        _errorMessage = 'Sin internet para cargar sucursales.';
       }
       return;
     }
@@ -387,29 +349,29 @@ class ClientsViewModel extends ChangeNotifier {
     if (_searchQuery.isNotEmpty) {
       params['q'] = _searchQuery;
     }
-
     final uri = config
-        .buildUri('/${config.companyCode}/clientes')
+        .buildUri('/${config.companyCode}/socios/${_client.id}/sucursales')
         .replace(queryParameters: params);
 
     try {
-      final response = await http.get(uri, headers: _authHeaders(auth));
+      final response = await http.get(uri, headers: _authHeaders());
       if (response.statusCode < 200 || response.statusCode >= 300) {
         _errorMessage = _extractErrorMessage(response.body);
         return;
       }
+
       _setOffline(false);
       _errorMessage = null;
       final data = _decodeJson(response.body);
       final rawList = _extractList(data);
-      final fetched = rawList.map(Client.fromJson).toList();
+      final fetched = rawList.map(ClientBranch.fromJson).toList();
 
       if (replaceItems) {
-        _clients
+        _branches
           ..clear()
           ..addAll(fetched);
       } else {
-        _clients.addAll(fetched);
+        _branches.addAll(fetched);
       }
 
       final pagination = data['pagination'];
@@ -422,15 +384,15 @@ class ClientsViewModel extends ChangeNotifier {
       }
     } catch (_) {
       _setOffline(true);
-      if (_clients.isEmpty) {
-        _errorMessage = 'No se pudo cargar clientes.';
+      if (_branches.isEmpty) {
+        _errorMessage = 'No se pudo cargar sucursales.';
       }
     }
   }
 
   ApiConfig? _currentConfig() {
-    final config = _settings?.apiConfig;
-    if (config == null || !config.isComplete || !config.isValidUrl) return null;
+    final config = _settings.apiConfig;
+    if (!config.isComplete || !config.isValidUrl) return null;
     return config;
   }
 
@@ -452,21 +414,31 @@ class ClientsViewModel extends ChangeNotifier {
     _setOffline(offline);
   }
 
-  Map<String, String> _authHeaders(AuthViewModel auth) {
+  Map<String, String> _authHeaders() {
     return {
       'Accept': 'application/json',
-      'Authorization': auth.authorizationHeader,
+      'Authorization': _auth.authorizationHeader,
       'Content-Type': 'application/json',
     };
   }
 
+  String? _nullableText(String? value) {
+    final text = value?.trim();
+    if (text == null || text.isEmpty) return null;
+    return text;
+  }
+
   List<Map<String, dynamic>> _extractList(Map<String, dynamic> data) {
-    final candidates = [data['socios'], data['clientes'], data['clients']];
+    final candidates = [
+      data['socio_sucursales'],
+      data['sucursales'],
+      data['items'],
+    ];
     for (final entry in candidates) {
       if (entry is List) {
         return entry
             .whereType<Map>()
-            .map((item) => item.map((k, v) => MapEntry(k.toString(), v)))
+            .map((item) => item.map((k, v) => MapEntry('$k', v)))
             .toList();
       }
     }
@@ -477,7 +449,7 @@ class ClientsViewModel extends ChangeNotifier {
     try {
       final decoded = jsonDecode(raw);
       if (decoded is Map) {
-        return decoded.map((k, v) => MapEntry(k.toString(), v));
+        return decoded.map((k, v) => MapEntry('$k', v));
       }
     } catch (_) {}
     return const {};
@@ -489,51 +461,34 @@ class ClientsViewModel extends ChangeNotifier {
     return int.tryParse(value?.toString() ?? '');
   }
 
-  String _generateClientCode() {
-    final unix = DateTime.now().millisecondsSinceEpoch.toString();
-    return 'CLI$unix';
-  }
-
-  bool _hasValue(String? value) {
-    return value != null && value.trim().isNotEmpty;
-  }
-
-  String? _nullableText(String? value) {
-    final text = value?.trim();
-    if (text == null || text.isEmpty) return null;
-    return text;
-  }
-
   String _extractErrorMessage(String rawBody) {
     final data = _decodeJson(rawBody);
     final message = data['message']?.toString().trim();
     if (message != null && message.isNotEmpty) return message;
-    return 'No se pudo crear el cliente.';
+    return 'Operacion no completada.';
   }
 
-  void _upsertInCurrentList(Client client) {
-    final index = _clients.indexWhere((item) => item.id == client.id);
+  void _upsertInCurrentList(ClientBranch branch) {
+    final index = _branches.indexWhere((item) => item.id == branch.id);
     if (index >= 0) {
-      _clients[index] = client;
+      _branches[index] = branch;
       return;
     }
-    if (!_matchesCurrentFilters(client)) return;
-    _clients.insert(0, client);
+    if (!_matchesCurrentFilters(branch)) return;
+    _branches.insert(0, branch);
   }
 
-  bool _matchesCurrentFilters(Client client) {
-    if (!client.activo) return false;
+  bool _matchesCurrentFilters(ClientBranch branch) {
+    if (!branch.activo) return false;
     if (_searchQuery.isEmpty) return true;
-
     final term = _searchQuery.toLowerCase();
-    final candidates = <String>[
-      client.codigo,
-      client.nombre,
-      client.nit ?? '',
-      client.correo ?? '',
-      client.celular ?? '',
-      client.telefono ?? '',
+    final fields = <String>[
+      branch.codigo ?? '',
+      branch.nombre,
+      branch.direccion ?? '',
+      branch.telefono ?? '',
+      branch.correo ?? '',
     ];
-    return candidates.any((value) => value.toLowerCase().contains(term));
+    return fields.any((value) => value.toLowerCase().contains(term));
   }
 }

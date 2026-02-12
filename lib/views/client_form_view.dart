@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/client.dart';
 import '../theme/app_theme.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/clients_viewmodel.dart';
@@ -8,7 +9,9 @@ import 'widgets/app_themed_background.dart';
 import 'widgets/offline_cloud_icon.dart';
 
 class ClientFormView extends StatefulWidget {
-  const ClientFormView({super.key});
+  const ClientFormView({super.key, this.client});
+
+  final Client? client;
 
   @override
   State<ClientFormView> createState() => _ClientFormViewState();
@@ -33,6 +36,26 @@ class _ClientFormViewState extends State<ClientFormView> {
   final _gpsController = TextEditingController();
 
   bool _esProveedor = false;
+  bool get _isEdit => widget.client != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final client = widget.client;
+    if (client == null) return;
+    _codigoController.text = client.codigo;
+    _nombreController.text = client.nombre;
+    _nombreComercialController.text = client.nombreComercial ?? '';
+    _nitController.text = client.nit ?? '';
+    _duiController.text = client.dui ?? '';
+    _pasaporteController.text = client.pasaporte ?? '';
+    _telefonoController.text = client.telefono ?? '';
+    _celularController.text = client.celular ?? '';
+    _correoController.text = client.correo ?? '';
+    _direccionController.text = client.direccion ?? '';
+    _gpsController.text = client.gpsUbicacion ?? '';
+    _esProveedor = client.esProveedor;
+  }
 
   @override
   void dispose() {
@@ -65,7 +88,7 @@ class _ClientFormViewState extends State<ClientFormView> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Nuevo cliente'),
+        title: Text(_isEdit ? 'Editar cliente' : 'Nuevo cliente'),
         actions: const [OfflineCloudIcon()],
       ),
       body: AppThemedBackground(
@@ -96,7 +119,17 @@ class _ClientFormViewState extends State<ClientFormView> {
                     _buildTextField(
                       controller: _codigoController,
                       label: 'Codigo',
-                      hint: 'Opcional, se genera automatico si va vacio',
+                      hint: _isEdit
+                          ? null
+                          : 'Opcional, se genera automatico si va vacio',
+                      validator: _isEdit
+                          ? (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Ingresa el codigo del cliente';
+                              }
+                              return null;
+                            }
+                          : null,
                     ),
                     const SizedBox(height: 10),
                     _buildTextField(
@@ -218,7 +251,11 @@ class _ClientFormViewState extends State<ClientFormView> {
                                 ),
                               )
                             : const Icon(Icons.save_outlined),
-                        label: Text(vm.isSaving ? 'Guardando...' : 'Guardar'),
+                        label: Text(
+                          vm.isSaving
+                              ? 'Guardando...'
+                              : (_isEdit ? 'Actualizar' : 'Guardar'),
+                        ),
                       ),
                     ),
                   ],
@@ -252,29 +289,55 @@ class _ClientFormViewState extends State<ClientFormView> {
     if (!_formKey.currentState!.validate()) return;
 
     final vm = context.read<ClientsViewModel>();
-    final created = await vm.createClient(
-      codigo: _codigoController.text,
-      nombre: _nombreController.text,
-      nombreComercial: _nombreComercialController.text,
-      nit: _nitController.text,
-      dui: _duiController.text,
-      pasaporte: _pasaporteController.text,
-      telefono: _telefonoController.text,
-      celular: _celularController.text,
-      correo: _correoController.text,
-      direccion: _direccionController.text,
-      gpsUbicacion: _gpsController.text,
-      codigoGiro: _codigoGiroController.text,
-      giroId: int.tryParse(_giroIdController.text.trim()),
-      municipioId: int.tryParse(_municipioIdController.text.trim()),
-      esProveedor: _esProveedor,
-    );
+    final client = widget.client;
+    final result = client == null
+        ? await vm.createClient(
+            codigo: _codigoController.text,
+            nombre: _nombreController.text,
+            nombreComercial: _nombreComercialController.text,
+            nit: _nitController.text,
+            dui: _duiController.text,
+            pasaporte: _pasaporteController.text,
+            telefono: _telefonoController.text,
+            celular: _celularController.text,
+            correo: _correoController.text,
+            direccion: _direccionController.text,
+            gpsUbicacion: _gpsController.text,
+            codigoGiro: _codigoGiroController.text,
+            giroId: int.tryParse(_giroIdController.text.trim()),
+            municipioId: int.tryParse(_municipioIdController.text.trim()),
+            esProveedor: _esProveedor,
+          )
+        : await vm.updateClient(
+            clientId: client.id,
+            codigo: _codigoController.text,
+            nombre: _nombreController.text,
+            nombreComercial: _nombreComercialController.text,
+            nit: _nitController.text,
+            dui: _duiController.text,
+            pasaporte: _pasaporteController.text,
+            telefono: _telefonoController.text,
+            celular: _celularController.text,
+            correo: _correoController.text,
+            direccion: _direccionController.text,
+            gpsUbicacion: _gpsController.text,
+            codigoGiro: _codigoGiroController.text,
+            giroId: int.tryParse(_giroIdController.text.trim()),
+            municipioId: int.tryParse(_municipioIdController.text.trim()),
+            esProveedor: _esProveedor,
+          );
 
     if (!context.mounted) return;
-    if (created == null) return;
+    if (result == null) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Cliente "${created.nombre}" creado.')),
+      SnackBar(
+        content: Text(
+          _isEdit
+              ? 'Cliente "${result.nombre}" actualizado.'
+              : 'Cliente "${result.nombre}" creado.',
+        ),
+      ),
     );
     Navigator.of(context).pop(true);
   }

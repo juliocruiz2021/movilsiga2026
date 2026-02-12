@@ -268,3 +268,37 @@ Notas:
 - Validacion:
   - `flutter test` en verde,
   - `flutter analyze` sin errores nuevos (se mantienen avisos preexistentes en productos/detalle).
+
+### 2026-02-12 (clientes y sucursales de clientes - modulo ampliado)
+- Se completa la ventana de clientes en Flutter con flujo operativo extendido:
+  - alta (`Nuevo`),
+  - edicion,
+  - eliminacion,
+  - acceso a sucursales por cliente.
+- `ClientFormView` ahora funciona en modo crear/editar (misma pantalla) y reutiliza validaciones/campos de socio-cliente.
+- `ClientsViewModel` agrega operaciones:
+  - `updateClient()` via `PUT /api/{empresa}/socios/{id}`
+  - `deleteClient()` via `DELETE /api/{empresa}/socios/{id}`
+  - estados de UI para borrado (`isDeleting`) y errores de guardado.
+- Se agrega modulo de sucursales de cliente:
+  - modelo `ClientBranch`,
+  - `ClientBranchesViewModel`,
+  - pantalla `ClientBranchesView`,
+  - formulario `ClientBranchFormView`.
+- Endpoints integrados para sucursales:
+  - `GET /api/{empresa}/socios/{socio}/sucursales` (listado paginado/busqueda),
+  - `POST /api/{empresa}/socios-sucursales` (crear),
+  - `PUT /api/{empresa}/socios-sucursales/{id}` (editar),
+  - `DELETE /api/{empresa}/socios-sucursales/{id}` (eliminar).
+- Campos manejados en sucursal:
+  - `codigo`,
+  - `nombre`,
+  - `direccion`,
+  - `ruta_id`,
+  - `gps_ubicacion`,
+  - `telefono`,
+  - `correo`.
+- Se mantiene paginacion estandar de 20 registros por pagina y estados online/offline para clientes y sucursales.
+- Validacion:
+  - `flutter test` en verde,
+  - `flutter analyze` solo con avisos preexistentes del modulo productos/detalle.

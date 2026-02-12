@@ -5,6 +5,7 @@ import '../models/client.dart';
 import '../theme/app_theme.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/clients_viewmodel.dart';
+import 'client_branches_view.dart';
 import 'client_form_view.dart';
 
 class ClientsView extends StatefulWidget {
@@ -50,6 +51,16 @@ class _ClientsViewState extends State<ClientsView> {
       (auth) =>
           auth.hasPermission('socios.create') ||
           auth.hasPermission('clientes.create'),
+    );
+    final canUpdateClients = context.select<AuthViewModel, bool>(
+      (auth) =>
+          auth.hasPermission('socios.update') ||
+          auth.hasPermission('clientes.update'),
+    );
+    final canDeleteClients = context.select<AuthViewModel, bool>(
+      (auth) =>
+          auth.hasPermission('socios.delete') ||
+          auth.hasPermission('clientes.delete'),
     );
 
     if (!canViewClients) {
@@ -112,14 +123,26 @@ class _ClientsViewState extends State<ClientsView> {
               ),
             ),
             const SizedBox(height: 12),
-            Expanded(child: _buildBody(context, vm)),
+            Expanded(
+              child: _buildBody(
+                context,
+                vm,
+                canUpdateClients: canUpdateClients,
+                canDeleteClients: canDeleteClients,
+              ),
+            ),
           ],
         );
       },
     );
   }
 
-  Widget _buildBody(BuildContext context, ClientsViewModel vm) {
+  Widget _buildBody(
+    BuildContext context,
+    ClientsViewModel vm, {
+    required bool canUpdateClients,
+    required bool canDeleteClients,
+  }) {
     if (vm.isLoading && vm.clients.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -158,7 +181,15 @@ class _ClientsViewState extends State<ClientsView> {
               child: Center(child: CircularProgressIndicator()),
             );
           }
-          return _ClientCard(client: vm.clients[index]);
+          final client = vm.clients[index];
+          return _ClientCard(
+            client: client,
+            canEdit: canUpdateClients,
+            canDelete: canDeleteClients,
+            onOpenBranches: () => _openClientBranches(context, client),
+            onEdit: () => _openEditClient(context, client),
+            onDelete: () => _confirmDeleteClient(context, client),
+          );
         },
       ),
     );
@@ -172,12 +203,79 @@ class _ClientsViewState extends State<ClientsView> {
     if (!context.mounted || created != true) return;
     await context.read<ClientsViewModel>().refresh();
   }
+
+  Future<void> _openEditClient(BuildContext context, Client client) async {
+    final edited = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => ClientFormView(client: client)),
+    );
+
+    if (!context.mounted || edited != true) return;
+    await context.read<ClientsViewModel>().refresh();
+  }
+
+  Future<void> _openClientBranches(BuildContext context, Client client) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => ClientBranchesView(client: client)),
+    );
+  }
+
+  Future<void> _confirmDeleteClient(BuildContext context, Client client) async {
+    final accept = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Eliminar cliente'),
+          content: Text('Se eliminara el cliente "${client.nombre}".'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Eliminar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!context.mounted || accept != true) return;
+
+    final vm = context.read<ClientsViewModel>();
+    final ok = await vm.deleteClient(client.id);
+    if (!context.mounted) return;
+
+    if (ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Cliente "${client.nombre}" eliminado.')),
+      );
+      return;
+    }
+
+    final message = vm.saveErrorMessage ?? 'No se pudo eliminar el cliente.';
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
 }
 
 class _ClientCard extends StatelessWidget {
-  const _ClientCard({required this.client});
+  const _ClientCard({
+    required this.client,
+    required this.onOpenBranches,
+    required this.canEdit,
+    required this.canDelete,
+    this.onEdit,
+    this.onDelete,
+  });
 
   final Client client;
+  final VoidCallback onOpenBranches;
+  final bool canEdit;
+  final bool canDelete;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -231,6 +329,37 @@ class _ClientCard extends StatelessWidget {
             value: client.primaryContact.isEmpty ? '-' : client.primaryContact,
           ),
           _InfoLine(label: 'Direccion', value: client.direccion ?? '-'),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: onOpenBranches,
+                icon: const Icon(Icons.account_tree_outlined, size: 18),
+                label: const Text('Sucursales'),
+              ),
+              if (canEdit)
+                OutlinedButton.icon(
+                  onPressed: onEdit,
+                  icon: const Icon(Icons.edit_outlined, size: 18),
+                  label: const Text('Editar'),
+                ),
+              if (canDelete)
+                OutlinedButton.icon(
+                  onPressed: onDelete,
+                  icon: Icon(
+                    Icons.delete_outline,
+                    size: 18,
+                    color: palette.danger,
+                  ),
+                  label: Text(
+                    'Eliminar',
+                    style: TextStyle(color: palette.danger),
+                  ),
+                ),
+            ],
+          ),
         ],
       ),
     );
