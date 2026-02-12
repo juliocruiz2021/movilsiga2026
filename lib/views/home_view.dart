@@ -78,7 +78,6 @@ class _HomeViewState extends State<HomeView> {
   }
 
   void _onDestinationSelected(int index) {
-    Navigator.of(context).pop();
     if (index == widget.initialIndex) return;
     if (index == MainMenuIndex.products) {
       Navigator.of(context).pushReplacement(
@@ -96,7 +95,6 @@ class _HomeViewState extends State<HomeView> {
   }
 
   void _openSettings() {
-    Navigator.of(context).pop();
     Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => const SettingsView()));
