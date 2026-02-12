@@ -84,6 +84,9 @@ class ClientBranchesViewModel extends ChangeNotifier {
     notifyListeners();
     try {
       await _loadPage(page: 1, replaceItems: true);
+    } catch (e, st) {
+      debugTrace('BRANCHES_VM', 'loadInitial fatal exception: $e\n$st');
+      _errorMessage = 'Error inesperado al cargar sucursales.';
     } finally {
       _isLoading = false;
       debugTrace(
@@ -101,6 +104,9 @@ class ClientBranchesViewModel extends ChangeNotifier {
     notifyListeners();
     try {
       await _loadPage(page: _currentPage + 1, replaceItems: false);
+    } catch (e, st) {
+      debugTrace('BRANCHES_VM', 'loadMore fatal exception: $e\n$st');
+      _errorMessage = 'Error inesperado al cargar mas sucursales.';
     } finally {
       _isLoadingMore = false;
       debugTrace(
@@ -452,8 +458,8 @@ class ClientBranchesViewModel extends ChangeNotifier {
         _currentPage = page;
         _lastPage = fetched.length < kPageSize ? page : page + 1;
       }
-    } catch (_) {
-      debugTrace('BRANCHES_VM', 'loadPage exception');
+    } catch (e, st) {
+      debugTrace('BRANCHES_VM', 'loadPage exception: $e\n$st');
       _setOffline(true);
       if (_branches.isEmpty) {
         _errorMessage = 'No se pudo cargar sucursales.';
@@ -468,15 +474,20 @@ class ClientBranchesViewModel extends ChangeNotifier {
   }
 
   Future<bool> _hasConnection() async {
-    final results = await Connectivity().checkConnectivity();
-    final hasConnection = results.any(
-      (result) => result != ConnectivityResult.none,
-    );
-    debugTrace(
-      'BRANCHES_VM',
-      'Connectivity check -> $results / $hasConnection',
-    );
-    return hasConnection;
+    try {
+      final results = await Connectivity().checkConnectivity();
+      final hasConnection = results.any(
+        (result) => result != ConnectivityResult.none,
+      );
+      debugTrace(
+        'BRANCHES_VM',
+        'Connectivity check -> $results / $hasConnection',
+      );
+      return hasConnection;
+    } catch (e, st) {
+      debugTrace('BRANCHES_VM', 'Connectivity check exception: $e\n$st');
+      return false;
+    }
   }
 
   void _setOffline(bool value) {

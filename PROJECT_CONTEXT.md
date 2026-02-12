@@ -316,3 +316,9 @@ Notas:
 - Header de depuracion habilitado en API calls de login/clientes/sucursales:
   - `X-Debug: 1` (via `withDebugHeader(...)`).
 - Objetivo: aislar rapidamente por consola que ocurre exactamente despues de tocar `Clientes`.
+- Se agrega captura global de errores no controlados en `main.dart`:
+  - `FlutterError.onError`,
+  - `PlatformDispatcher.instance.onError`,
+  - `runZonedGuarded(...)`.
+- Resultado esperado:
+  - si vuelve a reventar al tocar `Clientes`, debe quedar traza `FATAL` con stack completo en consola.

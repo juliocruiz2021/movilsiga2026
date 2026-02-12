@@ -1,8 +1,12 @@
+import 'dart:async';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'data/app_db.dart';
 import 'theme/app_theme.dart';
+import 'utils/debug_tools.dart';
 import 'viewmodels/auth_viewmodel.dart';
 import 'viewmodels/clients_viewmodel.dart';
 import 'viewmodels/connectivity_viewmodel.dart';
@@ -13,7 +17,25 @@ import 'views/login_view.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const App());
+
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    debugTrace('FATAL', 'FlutterError: ${details.exceptionAsString()}');
+    if (details.stack != null) {
+      debugTrace('FATAL', details.stack.toString());
+    }
+  };
+
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugTrace('FATAL', 'PlatformDispatcher error: $error');
+    debugTrace('FATAL', stack.toString());
+    return true;
+  };
+
+  runZonedGuarded(() => runApp(const App()), (error, stack) {
+    debugTrace('FATAL', 'runZonedGuarded error: $error');
+    debugTrace('FATAL', stack.toString());
+  });
 }
 
 class App extends StatelessWidget {

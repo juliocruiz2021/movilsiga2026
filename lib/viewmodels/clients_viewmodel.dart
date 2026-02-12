@@ -80,6 +80,9 @@ class ClientsViewModel extends ChangeNotifier {
     notifyListeners();
     try {
       await _loadPage(page: 1, replaceItems: true);
+    } catch (e, st) {
+      debugTrace('CLIENTS_VM', 'loadInitial fatal exception: $e\n$st');
+      _errorMessage = 'Error inesperado al cargar clientes.';
     } finally {
       _isLoading = false;
       debugTrace(
@@ -100,6 +103,9 @@ class ClientsViewModel extends ChangeNotifier {
     notifyListeners();
     try {
       await _loadPage(page: _currentPage + 1, replaceItems: false);
+    } catch (e, st) {
+      debugTrace('CLIENTS_VM', 'loadMore fatal exception: $e\n$st');
+      _errorMessage = 'Error inesperado al cargar mas clientes.';
     } finally {
       _isLoadingMore = false;
       debugTrace(
@@ -414,48 +420,48 @@ class ClientsViewModel extends ChangeNotifier {
     required int page,
     required bool replaceItems,
   }) async {
-    final config = _currentConfig();
-    final auth = _auth;
-    if (config == null || auth == null) {
-      _errorMessage = 'Configura la API antes de cargar clientes.';
-      return;
-    }
-
-    if (auth.token.isEmpty) {
-      await auth.reloadFromStorage();
-    }
-    if (auth.token.isEmpty) {
-      _errorMessage = 'No hay sesion activa.';
-      return;
-    }
-
-    final hasConnection = await _hasConnection();
-    if (!hasConnection) {
-      _setOffline(true);
-      if (_clients.isEmpty) {
-        _errorMessage = 'Sin internet para cargar clientes.';
-      }
-      return;
-    }
-
-    final params = <String, String>{
-      'page': page.toString(),
-      'per_page': kPageSize.toString(),
-      'activo': '1',
-    };
-    if (_searchQuery.isNotEmpty) {
-      params['q'] = _searchQuery;
-    }
-
-    final uri = config
-        .buildUri('/${config.companyCode}/clientes')
-        .replace(queryParameters: params);
-    debugTrace(
-      'CLIENTS_VM',
-      'GET $uri headers=${redactHeaders(_authHeaders(auth))}',
-    );
-
     try {
+      final config = _currentConfig();
+      final auth = _auth;
+      if (config == null || auth == null) {
+        _errorMessage = 'Configura la API antes de cargar clientes.';
+        return;
+      }
+
+      if (auth.token.isEmpty) {
+        await auth.reloadFromStorage();
+      }
+      if (auth.token.isEmpty) {
+        _errorMessage = 'No hay sesion activa.';
+        return;
+      }
+
+      final hasConnection = await _hasConnection();
+      if (!hasConnection) {
+        _setOffline(true);
+        if (_clients.isEmpty) {
+          _errorMessage = 'Sin internet para cargar clientes.';
+        }
+        return;
+      }
+
+      final params = <String, String>{
+        'page': page.toString(),
+        'per_page': kPageSize.toString(),
+        'activo': '1',
+      };
+      if (_searchQuery.isNotEmpty) {
+        params['q'] = _searchQuery;
+      }
+
+      final uri = config
+          .buildUri('/${config.companyCode}/clientes')
+          .replace(queryParameters: params);
+      debugTrace(
+        'CLIENTS_VM',
+        'GET $uri headers=${redactHeaders(_authHeaders(auth))}',
+      );
+
       final response = await http.get(uri, headers: _authHeaders(auth));
       if (response.statusCode < 200 || response.statusCode >= 300) {
         debugTrace(
@@ -489,8 +495,8 @@ class ClientsViewModel extends ChangeNotifier {
         _currentPage = page;
         _lastPage = fetched.length < kPageSize ? page : page + 1;
       }
-    } catch (_) {
-      debugTrace('CLIENTS_VM', 'loadPage exception');
+    } catch (e, st) {
+      debugTrace('CLIENTS_VM', 'loadPage exception: $e\n$st');
       _setOffline(true);
       if (_clients.isEmpty) {
         _errorMessage = 'No se pudo cargar clientes.';
@@ -505,12 +511,20 @@ class ClientsViewModel extends ChangeNotifier {
   }
 
   Future<bool> _hasConnection() async {
-    final results = await Connectivity().checkConnectivity();
-    final hasConnection = results.any(
-      (result) => result != ConnectivityResult.none,
-    );
-    debugTrace('CLIENTS_VM', 'Connectivity check -> $results / $hasConnection');
-    return hasConnection;
+    try {
+      final results = await Connectivity().checkConnectivity();
+      final hasConnection = results.any(
+        (result) => result != ConnectivityResult.none,
+      );
+      debugTrace(
+        'CLIENTS_VM',
+        'Connectivity check -> $results / $hasConnection',
+      );
+      return hasConnection;
+    } catch (e, st) {
+      debugTrace('CLIENTS_VM', 'Connectivity check exception: $e\n$st');
+      return false;
+    }
   }
 
   void _setOffline(bool value) {
