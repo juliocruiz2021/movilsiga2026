@@ -4,16 +4,34 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/api_config.dart';
 
+enum AppThemePreference {
+  system,
+  light,
+  dark,
+  sky;
+
+  String get storageValue => name;
+
+  static AppThemePreference fromStorage(String? value) {
+    return AppThemePreference.values.firstWhere(
+      (item) => item.storageValue == value,
+      orElse: () => AppThemePreference.sky,
+    );
+  }
+}
+
 class SettingsViewModel extends ChangeNotifier {
   static const _companyTokenKey = 'company_token';
   static const _apiBaseUrlKey = 'api_base_url';
   static const _companyCodeKey = 'company_code';
+  static const _themePreferenceKey = 'theme_preference';
 
   final FlutterSecureStorage _secureStorage;
 
   String _companyToken = '';
   String _apiBaseUrl = '';
   String _companyCode = '';
+  AppThemePreference _themePreference = AppThemePreference.sky;
   bool _isLoading = true;
   bool _isSaving = false;
   String? _message;
@@ -32,14 +50,15 @@ class SettingsViewModel extends ChangeNotifier {
   String get companyToken => _companyToken;
   String get apiBaseUrl => _apiBaseUrl;
   String get companyCode => _companyCode;
+  AppThemePreference get themePreference => _themePreference;
   bool get isLoading => _isLoading;
   bool get isSaving => _isSaving;
   String? get message => _message;
   ApiConfig get apiConfig => ApiConfig(
-        baseUrl: _apiBaseUrl,
-        companyCode: _companyCode,
-        companyToken: _companyToken,
-      );
+    baseUrl: _apiBaseUrl,
+    companyCode: _companyCode,
+    companyToken: _companyToken,
+  );
 
   bool get isConfigValid => apiConfig.isComplete && apiConfig.isValidUrl;
 
@@ -59,6 +78,14 @@ class SettingsViewModel extends ChangeNotifier {
     _companyCode = value.trim().toLowerCase();
     _message = null;
     notifyListeners();
+  }
+
+  Future<void> updateThemePreference(AppThemePreference value) async {
+    if (_themePreference == value) return;
+    _themePreference = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_themePreferenceKey, value.storageValue);
   }
 
   Future<void> save() async {
@@ -99,6 +126,9 @@ class SettingsViewModel extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _apiBaseUrl = prefs.getString(_apiBaseUrlKey) ?? '';
     _companyCode = prefs.getString(_companyCodeKey) ?? '';
+    _themePreference = AppThemePreference.fromStorage(
+      prefs.getString(_themePreferenceKey),
+    );
     _companyToken = await _secureStorage.read(key: _companyTokenKey) ?? '';
     _isLoading = false;
     notifyListeners();

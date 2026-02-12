@@ -31,7 +31,7 @@ class LoginViewModel extends ChangeNotifier {
   bool _hasLoadedSavedLogin = false;
 
   LoginViewModel({FlutterSecureStorage? secureStorage})
-      : _secureStorage = secureStorage ?? const FlutterSecureStorage() {
+    : _secureStorage = secureStorage ?? const FlutterSecureStorage() {
     _loadSavedLogin();
   }
 
@@ -109,8 +109,7 @@ class LoginViewModel extends ChangeNotifier {
         if (await _tryOfflineLogin(allowWithoutToken: true)) {
           return;
         }
-        _errorMessage =
-            'Necesitas conexion para el primer inicio de sesion.';
+        _errorMessage = 'Necesitas conexion para el primer inicio de sesion.';
         _infoMessage = null;
         return;
       }
@@ -124,12 +123,21 @@ class LoginViewModel extends ChangeNotifier {
         final tokenType = data['token_type'] as String?;
         final user = data['user'];
         final role = user is Map ? user['role']?.toString() : null;
+        final userId = user is Map ? user['id']?.toString() : null;
+        final userName = user is Map ? user['name']?.toString() : null;
+        final userEmail = user is Map ? user['email']?.toString() : null;
         if (token != null && token.isNotEmpty) {
           await _auth?.saveToken(token: token, tokenType: tokenType);
         }
         if (role != null && role.isNotEmpty) {
           await _auth?.saveRole(role);
         }
+        await _auth?.saveUserSession(
+          userId: userId,
+          userName: userName,
+          userEmail: userEmail,
+          loginAt: DateTime.now(),
+        );
         _loginSuccess = true;
         notifyListeners();
         await _saveLastLogin();
@@ -141,7 +149,8 @@ class LoginViewModel extends ChangeNotifier {
           return;
         }
         final data = _decodeJson(response.body);
-        final message = data['message'] as String? ?? 'Error al iniciar sesion.';
+        final message =
+            data['message'] as String? ?? 'Error al iniciar sesion.';
         _errorMessage = message;
         _infoMessage = null;
       }
@@ -173,11 +182,7 @@ class LoginViewModel extends ChangeNotifier {
       'password': _password,
       'device_name': deviceName,
     };
-    return http.post(
-      uri,
-      headers: headers,
-      body: jsonEncode(payload),
-    );
+    return http.post(uri, headers: headers, body: jsonEncode(payload));
   }
 
   Future<String> _getDeviceName() async {
@@ -206,8 +211,8 @@ class LoginViewModel extends ChangeNotifier {
   }
 
   Future<bool> _hasConnection() async {
-    final result = await Connectivity().checkConnectivity();
-    return result != ConnectivityResult.none;
+    final results = await Connectivity().checkConnectivity();
+    return results.any((result) => result != ConnectivityResult.none);
   }
 
   Future<bool> _tryOfflineLogin({required bool allowWithoutToken}) async {
@@ -252,7 +257,6 @@ class LoginViewModel extends ChangeNotifier {
     } catch (_) {}
     return const {};
   }
-
 
   void _setLoading(bool value) {
     _isLoading = value;

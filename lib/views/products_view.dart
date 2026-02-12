@@ -1,31 +1,59 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:provider/provider.dart';
 
 import '../models/product.dart';
+import '../theme/app_theme.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/products_viewmodel.dart';
+import 'settings_view.dart';
 import 'product_detail_view.dart';
 import 'login_view.dart';
+import 'widgets/app_themed_background.dart';
+import 'widgets/main_navigation_drawer.dart';
 
 class ProductsView extends StatelessWidget {
-  const ProductsView({super.key});
+  const ProductsView({super.key, this.homeBuilder});
+
+  final Widget Function(int sectionIndex)? homeBuilder;
 
   @override
   Widget build(BuildContext context) {
-    return const _ProductsScaffold();
+    return _ProductsScaffold(homeBuilder: homeBuilder);
   }
 }
 
 class _ProductsScaffold extends StatelessWidget {
-  const _ProductsScaffold();
+  const _ProductsScaffold({this.homeBuilder});
+
+  final Widget Function(int sectionIndex)? homeBuilder;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final palette = context.palette;
 
     return Scaffold(
+      drawer: homeBuilder == null
+          ? null
+          : MainNavigationDrawer(
+              selectedIndex: MainMenuIndex.products,
+              onDestinationSelected: (index) {
+                Navigator.of(context).pop();
+                if (index == MainMenuIndex.products) return;
+                _goToHomeSection(context, index);
+              },
+              onOpenSettings: () {
+                Navigator.of(context).pop();
+                Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: (_) => const SettingsView()));
+              },
+              onLogout: () {
+                Navigator.of(context).pop();
+                _logout(context);
+              },
+            ),
       appBar: AppBar(
         title: Consumer<ProductsViewModel>(
           builder: (context, vm, _) {
@@ -33,12 +61,9 @@ class _ProductsScaffold extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (vm.isOffline)
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(right: 8),
-                    child: Icon(
-                      Icons.cloud_off,
-                      color: Color(0xFFB00020),
-                    ),
+                    child: Icon(Icons.cloud_off, color: palette.danger),
                   ),
                 const Text('Productos'),
               ],
@@ -57,11 +82,11 @@ class _ProductsScaffold extends StatelessWidget {
                         : () async {
                             await vm.syncCatalog(incremental: false);
                             if (!context.mounted) return;
-                            final message = vm.lastSyncError ??
-                                'Catálogo descargado.';
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(message)),
-                            );
+                            final message =
+                                vm.lastSyncError ?? 'Catálogo descargado.';
+                            ScaffoldMessenger.of(
+                              context,
+                            ).showSnackBar(SnackBar(content: Text(message)));
                           },
                     icon: const Icon(Icons.cloud_download_outlined),
                   ),
@@ -71,11 +96,11 @@ class _ProductsScaffold extends StatelessWidget {
                         : () async {
                             await vm.syncCatalog(incremental: true);
                             if (!context.mounted) return;
-                            final message = vm.lastSyncError ??
-                                'Sincronización completa.';
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(message)),
-                            );
+                            final message =
+                                vm.lastSyncError ?? 'Sincronización completa.';
+                            ScaffoldMessenger.of(
+                              context,
+                            ).showSnackBar(SnackBar(content: Text(message)));
                           },
                     icon: const Icon(Icons.sync),
                   ),
@@ -85,11 +110,11 @@ class _ProductsScaffold extends StatelessWidget {
                         : () async {
                             await vm.downloadAllPhotos();
                             if (!context.mounted) return;
-                            final message = vm.lastSyncError ??
-                                'Fotos descargadas.';
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(message)),
-                            );
+                            final message =
+                                vm.lastSyncError ?? 'Fotos descargadas.';
+                            ScaffoldMessenger.of(
+                              context,
+                            ).showSnackBar(SnackBar(content: Text(message)));
                           },
                     icon: const Icon(Icons.photo_library_outlined),
                   ),
@@ -97,70 +122,78 @@ class _ProductsScaffold extends StatelessWidget {
               );
             },
           ),
-          IconButton(
-            onPressed: () async {
-              final productsVm = context.read<ProductsViewModel>();
-              productsVm.resetFilters(reload: false);
-              productsVm.resetSession();
-              await context.read<AuthViewModel>().clearToken();
-              if (!context.mounted) return;
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (_) => const LoginView()),
-              );
-            },
-            icon: const Icon(Icons.logout),
-          ),
           const SizedBox(width: 8),
         ],
       ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final isWide = constraints.maxWidth >= 900;
+      body: AppThemedBackground(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth >= 900;
 
-          if (isWide) {
-            return Row(
-              children: [
-                Expanded(
-                  flex: 1,
-                  child: Column(
-                    children: [
-                      const _Toolbar(),
-                      const SizedBox(height: 8),
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: _ProductGrid(isWide: isWide),
+            if (isWide) {
+              return Row(
+                children: [
+                  Expanded(
+                    flex: 1,
+                    child: Column(
+                      children: [
+                        const _Toolbar(),
+                        const SizedBox(height: 8),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: _ProductGrid(isWide: isWide),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            return Column(
+              children: [
+                const _Toolbar(),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _ProductGrid(isWide: isWide),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: SafeArea(
+                    top: false,
+                    child: _CheckoutBar(theme: theme),
                   ),
                 ),
               ],
             );
-          }
-
-          return Column(
-            children: [
-              const _Toolbar(),
-              const SizedBox(height: 8),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: _ProductGrid(isWide: isWide),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: SafeArea(
-                  top: false,
-                  child: _CheckoutBar(theme: theme),
-                ),
-              ),
-            ],
-          );
-        },
+          },
+        ),
       ),
     );
+  }
+
+  void _goToHomeSection(BuildContext context, int index) {
+    final builder = homeBuilder;
+    if (builder == null) return;
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (_) => builder(index)));
+  }
+
+  Future<void> _logout(BuildContext context) async {
+    final productsVm = context.read<ProductsViewModel>();
+    productsVm.resetFilters(reload: false);
+    productsVm.resetSession();
+    await context.read<AuthViewModel>().clearToken();
+    if (!context.mounted) return;
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (_) => const LoginView()));
   }
 }
 
@@ -184,6 +217,7 @@ class _ToolbarState extends State<_Toolbar> {
   Widget build(BuildContext context) {
     return Consumer<ProductsViewModel>(
       builder: (context, vm, _) {
+        final palette = context.palette;
         return Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child: Column(
@@ -216,29 +250,27 @@ class _ToolbarState extends State<_Toolbar> {
                           borderSide: BorderSide.none,
                         ),
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: palette.surface,
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   IconButton(
-                    onPressed: () =>
-                        vm.updateViewMode(ProductViewMode.grid),
+                    onPressed: () => vm.updateViewMode(ProductViewMode.grid),
                     icon: Icon(
                       Icons.grid_view,
                       color: vm.viewMode == ProductViewMode.grid
-                          ? const Color(0xFF1B9CFF)
-                          : const Color(0xFF4C6F8A),
+                          ? palette.primary
+                          : palette.textMuted,
                     ),
                   ),
                   IconButton(
-                    onPressed: () =>
-                        vm.updateViewMode(ProductViewMode.list),
+                    onPressed: () => vm.updateViewMode(ProductViewMode.list),
                     icon: Icon(
                       Icons.view_list,
                       color: vm.viewMode == ProductViewMode.list
-                          ? const Color(0xFF1B9CFF)
-                          : const Color(0xFF4C6F8A),
+                          ? palette.primary
+                          : palette.textMuted,
                     ),
                   ),
                 ],
@@ -257,13 +289,14 @@ class _ToolbarState extends State<_Toolbar> {
                         label: const Text('Todas'),
                         selected: selected,
                         onSelected: (_) => vm.updateCategory(null),
-                        selectedColor: const Color(0xFF1B9CFF),
+                        selectedColor: palette.primary,
                         labelStyle: TextStyle(
                           color: selected
-                              ? Colors.white
-                              : const Color(0xFF1B3A55),
-                          fontWeight:
-                              selected ? FontWeight.w700 : FontWeight.w600,
+                              ? palette.onPrimary
+                              : palette.textStrong,
+                          fontWeight: selected
+                              ? FontWeight.w700
+                              : FontWeight.w600,
                         ),
                       );
                     }
@@ -273,11 +306,14 @@ class _ToolbarState extends State<_Toolbar> {
                       label: Text(category.nombre),
                       selected: selected,
                       onSelected: (_) => vm.updateCategory(category.id),
-                      selectedColor: const Color(0xFF1B9CFF),
+                      selectedColor: palette.primary,
                       labelStyle: TextStyle(
-                        color: selected ? Colors.white : const Color(0xFF1B3A55),
-                        fontWeight:
-                            selected ? FontWeight.w700 : FontWeight.w600,
+                        color: selected
+                            ? palette.onPrimary
+                            : palette.textStrong,
+                        fontWeight: selected
+                            ? FontWeight.w700
+                            : FontWeight.w600,
                       ),
                     );
                   },
@@ -390,6 +426,7 @@ class _ProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final palette = context.palette;
     final color = Color(product.colorHex);
 
     return Consumer<ProductsViewModel>(
@@ -406,11 +443,11 @@ class _ProductCard extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: palette.surface,
               borderRadius: BorderRadius.circular(18),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: palette.shadow.withValues(alpha: 0.05),
                   blurRadius: 16,
                   offset: const Offset(0, 8),
                 ),
@@ -422,11 +459,12 @@ class _ProductCard extends StatelessWidget {
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
-                      color: color.withOpacity(0.25),
+                      color: color.withValues(alpha: 0.25),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Center(
-                      child: product.fotoThumbUrl != null &&
+                      child:
+                          product.fotoThumbUrl != null &&
                               product.fotoThumbUrl!.isNotEmpty
                           ? ClipRRect(
                               borderRadius: BorderRadius.circular(14),
@@ -453,7 +491,7 @@ class _ProductCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w700,
-                          color: const Color(0xFF0A2B3C),
+                          color: palette.textStrong,
                         ),
                       ),
                     ),
@@ -467,7 +505,7 @@ class _ProductCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: const Color(0xFF4C6F8A),
+                            color: palette.textMuted,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -477,7 +515,7 @@ class _ProductCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: const Color(0xFF4C6F8A),
+                            color: palette.textMuted,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -502,6 +540,7 @@ class _ProductListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final palette = context.palette;
     return InkWell(
       onTap: () {
         Navigator.of(context).push(
@@ -514,11 +553,11 @@ class _ProductListTile extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: palette.surface,
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: palette.shadow.withValues(alpha: 0.04),
               blurRadius: 12,
               offset: const Offset(0, 6),
             ),
@@ -534,7 +573,7 @@ class _ProductListTile extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xFF0A2B3C),
+                  color: palette.textStrong,
                 ),
               ),
             ),
@@ -548,7 +587,7 @@ class _ProductListTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: const Color(0xFF4C6F8A),
+                    color: palette.textMuted,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -558,7 +597,7 @@ class _ProductListTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: const Color(0xFF4C6F8A),
+                    color: palette.textMuted,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -578,21 +617,22 @@ class _NoImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Icon(
           Icons.image_not_supported_outlined,
           size: 36,
-          color: color.withOpacity(0.85),
+          color: color.withValues(alpha: 0.85),
         ),
         const SizedBox(height: 6),
         Text(
           'Sin imagen',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: const Color(0xFF4C6F8A),
-                fontWeight: FontWeight.w600,
-              ),
+            color: palette.textMuted,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ],
     );
@@ -626,20 +666,14 @@ class _CachedNetworkImage extends StatelessWidget {
       builder: (context, snapshot) {
         final cached = snapshot.data?.file;
         if (cached != null) {
-          return Image.file(
-            cached,
-            fit: fit,
-            width: width,
-            height: height,
-          );
+          return Image.file(cached, fit: fit, width: width, height: height);
         }
         return Image.network(
           url,
           fit: fit,
           width: width,
           height: height,
-          errorBuilder: (_, __, ___) =>
-              errorWidget ?? const SizedBox.shrink(),
+          errorBuilder: (_, __, ___) => errorWidget ?? const SizedBox.shrink(),
         );
       },
     );
@@ -652,15 +686,16 @@ class _CartPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final palette = context.palette;
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: palette.surface,
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: palette.shadow.withValues(alpha: 0.05),
             blurRadius: 16,
             offset: const Offset(0, 8),
           ),
@@ -673,7 +708,7 @@ class _CartPanel extends StatelessWidget {
             'Resumen',
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w700,
-              color: const Color(0xFF0A2B3C),
+              color: palette.textStrong,
             ),
           ),
           const SizedBox(height: 12),
@@ -685,7 +720,7 @@ class _CartPanel extends StatelessWidget {
                     child: Text(
                       'Sin productos',
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: const Color(0xFF4C6F8A),
+                        color: palette.textMuted,
                       ),
                     ),
                   );
@@ -696,8 +731,9 @@ class _CartPanel extends StatelessWidget {
                   separatorBuilder: (_, __) => const SizedBox(height: 8),
                   itemBuilder: (context, index) {
                     final entry = vm.cartItems.entries.elementAt(index);
-                    final product = vm.products
-                        .firstWhere((item) => item.id == entry.key);
+                    final product = vm.products.firstWhere(
+                      (item) => item.id == entry.key,
+                    );
                     return _CartItemRow(product: product, qty: entry.value);
                   },
                 );
@@ -713,7 +749,7 @@ class _CartPanel extends StatelessWidget {
                   Text(
                     'Items: ${vm.cartCount}',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: const Color(0xFF4C6F8A),
+                      color: palette.textMuted,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -725,13 +761,11 @@ class _CartPanel extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   SizedBox(
-                    height: 46,
+                    height: 52,
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: vm.cartItems.isEmpty ? null : () {},
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF35C69A),
-                        foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),
@@ -759,22 +793,26 @@ class _CartItemRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final palette = context.palette;
 
     return Consumer<ProductsViewModel>(
       builder: (context, vm, _) {
         return Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: const Color(0xFFF6FAFF),
+            color: palette.surfaceSoft,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
             children: [
               CircleAvatar(
                 radius: 16,
-                backgroundColor: Color(product.colorHex).withOpacity(0.4),
-                child: const Icon(Icons.inventory_2_outlined,
-                    size: 16, color: Colors.white),
+                backgroundColor: Color(product.colorHex).withValues(alpha: 0.4),
+                child: const Icon(
+                  Icons.inventory_2_outlined,
+                  size: 16,
+                  color: Colors.white,
+                ),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -805,16 +843,17 @@ class _CheckoutBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Consumer<ProductsViewModel>(
       builder: (context, vm, _) {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: palette.surface,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: palette.shadow.withValues(alpha: 0.05),
                 blurRadius: 16,
                 offset: const Offset(0, 8),
               ),
@@ -828,7 +867,7 @@ class _CheckoutBar extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: const Color(0xFF4C6F8A),
+                    color: palette.textMuted,
                     fontWeight: FontWeight.w700,
                   ),
                 ),

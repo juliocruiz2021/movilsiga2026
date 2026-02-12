@@ -87,8 +87,9 @@ class ProductsViewModel extends ChangeNotifier {
     _settings = settings;
     _auth = auth;
     _db = db;
-    _connectivitySub ??=
-        Connectivity().onConnectivityChanged.listen(_handleConnectivity);
+    _connectivitySub ??= Connectivity().onConnectivityChanged.listen(
+      _handleConnectivity,
+    );
     if (!_initialized) {
       _initialized = true;
       loadInitial();
@@ -262,8 +263,8 @@ class ProductsViewModel extends ChangeNotifier {
   }
 
   Future<bool> _hasConnection() async {
-    final result = await Connectivity().checkConnectivity();
-    return result != ConnectivityResult.none;
+    final results = await Connectivity().checkConnectivity();
+    return results.any((result) => result != ConnectivityResult.none);
   }
 
   Future<void> syncCatalog({bool incremental = true}) async {
@@ -288,7 +289,12 @@ class ProductsViewModel extends ChangeNotifier {
       await _syncBrands(config, auth, db, useIncremental ? lastSync : null);
       await _syncSucursales(config, auth, db, useIncremental ? lastSync : null);
       await _syncBodegas(config, auth, db, useIncremental ? lastSync : null);
-      await _syncExistencias(config, auth, db, useIncremental ? lastSync : null);
+      await _syncExistencias(
+        config,
+        auth,
+        db,
+        useIncremental ? lastSync : null,
+      );
       await _syncProducts(config, auth, db, useIncremental ? lastSync : null);
 
       await _saveLastSync(DateTime.now());
@@ -312,12 +318,13 @@ class ProductsViewModel extends ChangeNotifier {
       final items = db == null
           ? _products
           : (await db.select(db.products).get())
-              .map((row) => Product(
+                .map(
+                  (row) => Product(
                     id: row.id,
                     codigo: row.codigo,
-                  nombre: row.nombre,
-                  precio: row.precio,
-                  stock: row.stock,
+                    nombre: row.nombre,
+                    precio: row.precio,
+                    stock: row.stock,
                     colorHex: Product.colorFromId(row.id),
                     categoryId: row.categoryId,
                     categoryNombre: row.categoryNombre,
@@ -328,8 +335,9 @@ class ProductsViewModel extends ChangeNotifier {
                     fotoThumbUrl: row.fotoThumbUrl,
                     descripcion: row.descripcion,
                     stockBySucursal: const [],
-                  ))
-              .toList();
+                  ),
+                )
+                .toList();
 
       final urls = <String>{};
       for (final product in items) {
@@ -363,9 +371,9 @@ class ProductsViewModel extends ChangeNotifier {
     final db = _db;
     if (config == null || auth == null || auth.token.isEmpty) return;
 
-    final uri = config.buildUri('/${config.companyCode}/categorias').replace(
-      queryParameters: {'per_page': '100'},
-    );
+    final uri = config
+        .buildUri('/${config.companyCode}/categorias')
+        .replace(queryParameters: {'per_page': '100'});
     try {
       final response = await http.get(uri, headers: _authHeaders(auth));
       if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -401,7 +409,9 @@ class ProductsViewModel extends ChangeNotifier {
     final rows = await db.fetchCategories();
     _categories
       ..clear()
-      ..addAll(rows.map((row) => ProductCategory(id: row.id, nombre: row.nombre)));
+      ..addAll(
+        rows.map((row) => ProductCategory(id: row.id, nombre: row.nombre)),
+      );
   }
 
   Future<void> _loadProductsLocal({required int page}) async {
@@ -428,30 +438,34 @@ class ProductsViewModel extends ChangeNotifier {
     final items = <Product>[];
     for (final row in rows) {
       final stocks = await db.fetchProductStocks(row.id);
-      items.add(Product(
-        id: row.id,
-        codigo: row.codigo,
-        nombre: row.nombre,
-        precio: row.precio,
-        stock: row.stock,
-        colorHex: Product.colorFromId(row.id),
-        categoryId: row.categoryId,
-        categoryNombre: row.categoryNombre,
-        brandId: row.brandId,
-        brandNombre: row.brandNombre,
-        fotoUrl: row.fotoUrl,
-        fotoUrlWeb: row.fotoUrlWeb,
-        fotoThumbUrl: row.fotoThumbUrl,
-        descripcion: row.descripcion,
-        stockBySucursal: stocks
-            .map((s) => SucursalStock(
+      items.add(
+        Product(
+          id: row.id,
+          codigo: row.codigo,
+          nombre: row.nombre,
+          precio: row.precio,
+          stock: row.stock,
+          colorHex: Product.colorFromId(row.id),
+          categoryId: row.categoryId,
+          categoryNombre: row.categoryNombre,
+          brandId: row.brandId,
+          brandNombre: row.brandNombre,
+          fotoUrl: row.fotoUrl,
+          fotoUrlWeb: row.fotoUrlWeb,
+          fotoThumbUrl: row.fotoThumbUrl,
+          descripcion: row.descripcion,
+          stockBySucursal: stocks
+              .map(
+                (s) => SucursalStock(
                   id: s.sucursalId,
                   codigo: s.sucursalCodigo ?? '',
                   nombre: s.sucursalNombre ?? '',
                   stockTotal: s.stockTotal,
-                ))
-            .toList(),
-      ));
+                ),
+              )
+              .toList(),
+        ),
+      );
     }
 
     if (page == 1) {
@@ -539,13 +553,19 @@ class ProductsViewModel extends ChangeNotifier {
                         : const <String, dynamic>{};
                     final stockTotal = _toDouble(entry['stock_total']);
                     final sucursalId = _toInt(sucursalMap['id']) ?? 0;
-                    stocks.add(ProductSucursalStocksCompanion(
-                      productId: Value(productId),
-                      sucursalId: Value(sucursalId),
-                      sucursalCodigo: Value(sucursalMap['codigo']?.toString()),
-                      sucursalNombre: Value(sucursalMap['nombre']?.toString()),
-                      stockTotal: Value(stockTotal),
-                    ));
+                    stocks.add(
+                      ProductSucursalStocksCompanion(
+                        productId: Value(productId),
+                        sucursalId: Value(sucursalId),
+                        sucursalCodigo: Value(
+                          sucursalMap['codigo']?.toString(),
+                        ),
+                        sucursalNombre: Value(
+                          sucursalMap['nombre']?.toString(),
+                        ),
+                        stockTotal: Value(stockTotal),
+                      ),
+                    );
                   }
                 }
               }
@@ -596,7 +616,8 @@ class ProductsViewModel extends ChangeNotifier {
   }
 
   void _handleConnectivity(List<ConnectivityResult> results) {
-    final offline = results.isEmpty ||
+    final offline =
+        results.isEmpty ||
         (results.length == 1 && results.first == ConnectivityResult.none);
     _setOffline(offline);
   }
@@ -717,13 +738,15 @@ class ProductsViewModel extends ChangeNotifier {
                 : const <String, dynamic>{};
             final stockTotal = _toDouble(entry['stock_total']);
             final sucursalId = _toInt(sucursalMap['id']) ?? 0;
-            stocks.add(ProductSucursalStocksCompanion(
-              productId: Value(productId),
-              sucursalId: Value(sucursalId),
-              sucursalCodigo: Value(sucursalMap['codigo']?.toString()),
-              sucursalNombre: Value(sucursalMap['nombre']?.toString()),
-              stockTotal: Value(stockTotal),
-            ));
+            stocks.add(
+              ProductSucursalStocksCompanion(
+                productId: Value(productId),
+                sucursalId: Value(sucursalId),
+                sucursalCodigo: Value(sucursalMap['codigo']?.toString()),
+                sucursalNombre: Value(sucursalMap['nombre']?.toString()),
+                stockTotal: Value(stockTotal),
+              ),
+            );
           }
         }
       }
@@ -764,14 +787,13 @@ class ProductsViewModel extends ChangeNotifier {
       if (raw is List) {
         results.addAll(
           raw.whereType<Map>().map(
-                (item) => item.map((k, v) => MapEntry(k.toString(), v)),
-              ),
+            (item) => item.map((k, v) => MapEntry(k.toString(), v)),
+          ),
         );
       }
       final pagination = data['pagination'];
       if (pagination is Map) {
-        lastPage =
-            (pagination['last_page'] as num?)?.toInt() ?? lastPage;
+        lastPage = (pagination['last_page'] as num?)?.toInt() ?? lastPage;
       }
       page += 1;
     } while (page <= lastPage);
@@ -982,9 +1004,7 @@ class ProductsViewModel extends ChangeNotifier {
       final uploadPath = await _normalizeImageForUpload(filePath);
       final request = http.MultipartRequest('POST', uri);
       request.headers.addAll(_authHeaders(auth));
-      request.files.add(
-        await http.MultipartFile.fromPath('foto', uploadPath),
-      );
+      request.files.add(await http.MultipartFile.fromPath('foto', uploadPath));
       final response = await request.send();
       final body = await response.stream.bytesToString();
       if (response.statusCode >= 200 && response.statusCode < 300) {
