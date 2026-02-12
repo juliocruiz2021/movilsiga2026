@@ -302,3 +302,17 @@ Notas:
 - Validacion:
   - `flutter test` en verde,
   - `flutter analyze` solo con avisos preexistentes del modulo productos/detalle.
+
+### 2026-02-12 (instrumentacion debug clientes)
+- Se agrega trazabilidad explicita en consola para diagnosticar flujo de `Clientes` y `Sucursales`:
+  - eventos de drawer/navegacion (`NAV`, `DRAWER`),
+  - ciclo de carga de clientes/sucursales (`CLIENTS_VM`, `BRANCHES_VM`),
+  - requests/responses HTTP (URL, estado, preview de body),
+  - eventos UI relevantes (`CLIENTS_UI`).
+- Se agrega utilitario comun de debug `lib/utils/debug_tools.dart` con:
+  - `debugTrace(...)`,
+  - mascara de headers sensibles (`Authorization`),
+  - preview seguro de body.
+- Header de depuracion habilitado en API calls de login/clientes/sucursales:
+  - `X-Debug: 1` (via `withDebugHeader(...)`).
+- Objetivo: aislar rapidamente por consola que ocurre exactamente despues de tocar `Clientes`.

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../models/product.dart';
 import '../theme/app_theme.dart';
+import '../utils/debug_tools.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/products_viewmodel.dart';
 import 'settings_view.dart';
@@ -39,17 +40,23 @@ class _ProductsScaffold extends StatelessWidget {
           : MainNavigationDrawer(
               selectedIndex: MainMenuIndex.products,
               onDestinationSelected: (index) {
+                debugTrace(
+                  'NAV',
+                  'Drawer tap from Products. target=$index current=${MainMenuIndex.products}',
+                );
                 Navigator.of(context).pop();
                 if (index == MainMenuIndex.products) return;
                 _goToHomeSection(context, index);
               },
               onOpenSettings: () {
+                debugTrace('NAV', 'Open settings from Products');
                 Navigator.of(context).pop();
                 Navigator.of(
                   context,
                 ).push(MaterialPageRoute(builder: (_) => const SettingsView()));
               },
               onLogout: () {
+                debugTrace('NAV', 'Logout from Products');
                 Navigator.of(context).pop();
                 _logout(context);
               },

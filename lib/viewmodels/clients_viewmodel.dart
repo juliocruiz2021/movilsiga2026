@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import '../constants/pagination.dart';
 import '../models/api_config.dart';
 import '../models/client.dart';
+import '../utils/debug_tools.dart';
 import 'auth_viewmodel.dart';
 import 'settings_viewmodel.dart';
 
@@ -43,6 +44,10 @@ class ClientsViewModel extends ChangeNotifier {
   void updateDependencies(SettingsViewModel settings, AuthViewModel auth) {
     _settings = settings;
     _auth = auth;
+    debugTrace(
+      'CLIENTS_VM',
+      'Dependencies ready. hasConfig=${settings.apiConfig.isComplete} hasToken=${auth.token.isNotEmpty}',
+    );
     _connectivitySub ??= Connectivity().onConnectivityChanged.listen(
       _handleConnectivity,
     );
@@ -67,6 +72,7 @@ class ClientsViewModel extends ChangeNotifier {
   }
 
   Future<void> loadInitial() async {
+    debugTrace('CLIENTS_VM', 'loadInitial start. query="$_searchQuery"');
     _isLoading = true;
     _errorMessage = null;
     _currentPage = 1;
@@ -76,18 +82,30 @@ class ClientsViewModel extends ChangeNotifier {
       await _loadPage(page: 1, replaceItems: true);
     } finally {
       _isLoading = false;
+      debugTrace(
+        'CLIENTS_VM',
+        'loadInitial end. count=${_clients.length} error=$_errorMessage',
+      );
       notifyListeners();
     }
   }
 
   Future<void> loadMore() async {
     if (_isLoading || _isLoadingMore || !hasMore) return;
+    debugTrace(
+      'CLIENTS_VM',
+      'loadMore start. nextPage=${_currentPage + 1} currentCount=${_clients.length}',
+    );
     _isLoadingMore = true;
     notifyListeners();
     try {
       await _loadPage(page: _currentPage + 1, replaceItems: false);
     } finally {
       _isLoadingMore = false;
+      debugTrace(
+        'CLIENTS_VM',
+        'loadMore end. page=$_currentPage count=${_clients.length} hasMore=$hasMore',
+      );
       notifyListeners();
     }
   }
@@ -111,6 +129,10 @@ class ClientsViewModel extends ChangeNotifier {
     int? municipioId,
     bool esProveedor = false,
   }) async {
+    debugTrace(
+      'CLIENTS_VM',
+      'createClient start. codigo=$codigo nombre=$nombre esProveedor=$esProveedor',
+    );
     final config = _currentConfig();
     final auth = _auth;
     if (config == null || auth == null) {
@@ -165,6 +187,10 @@ class ClientsViewModel extends ChangeNotifier {
     };
 
     final uri = config.buildUri('/${config.companyCode}/socios');
+    debugTrace(
+      'CLIENTS_VM',
+      'POST $uri headers=${redactHeaders(_authHeaders(auth))} body=${debugBodyPreview(jsonEncode(payload))}',
+    );
 
     try {
       final response = await http.post(
@@ -173,9 +199,14 @@ class ClientsViewModel extends ChangeNotifier {
         body: jsonEncode(payload),
       );
       if (response.statusCode < 200 || response.statusCode >= 300) {
+        debugTrace(
+          'CLIENTS_VM',
+          'createClient failed status=${response.statusCode} body=${debugBodyPreview(response.body)}',
+        );
         _saveErrorMessage = _extractErrorMessage(response.body);
         return null;
       }
+      debugTrace('CLIENTS_VM', 'createClient ok status=${response.statusCode}');
 
       _setOffline(false);
       final data = _decodeJson(response.body);
@@ -188,9 +219,11 @@ class ClientsViewModel extends ChangeNotifier {
       final created = Client.fromJson(
         socioRaw.map((key, value) => MapEntry(key.toString(), value)),
       );
+      debugTrace('CLIENTS_VM', 'createClient parsed id=${created.id}');
       _upsertInCurrentList(created);
       return created;
     } catch (_) {
+      debugTrace('CLIENTS_VM', 'createClient exception');
       _setOffline(true);
       _saveErrorMessage = 'No se pudo crear el cliente.';
       return null;
@@ -218,6 +251,10 @@ class ClientsViewModel extends ChangeNotifier {
     int? municipioId,
     bool esProveedor = false,
   }) async {
+    debugTrace(
+      'CLIENTS_VM',
+      'updateClient start id=$clientId codigo=$codigo nombre=$nombre',
+    );
     final config = _currentConfig();
     final auth = _auth;
     if (config == null || auth == null) {
@@ -267,6 +304,10 @@ class ClientsViewModel extends ChangeNotifier {
     };
 
     final uri = config.buildUri('/${config.companyCode}/socios/$clientId');
+    debugTrace(
+      'CLIENTS_VM',
+      'PUT $uri headers=${redactHeaders(_authHeaders(auth))} body=${debugBodyPreview(jsonEncode(payload))}',
+    );
     try {
       final response = await http.put(
         uri,
@@ -274,9 +315,14 @@ class ClientsViewModel extends ChangeNotifier {
         body: jsonEncode(payload),
       );
       if (response.statusCode < 200 || response.statusCode >= 300) {
+        debugTrace(
+          'CLIENTS_VM',
+          'updateClient failed status=${response.statusCode} body=${debugBodyPreview(response.body)}',
+        );
         _saveErrorMessage = _extractErrorMessage(response.body);
         return null;
       }
+      debugTrace('CLIENTS_VM', 'updateClient ok status=${response.statusCode}');
 
       _setOffline(false);
       final data = _decodeJson(response.body);
@@ -289,9 +335,11 @@ class ClientsViewModel extends ChangeNotifier {
       final updated = Client.fromJson(
         socioRaw.map((key, value) => MapEntry(key.toString(), value)),
       );
+      debugTrace('CLIENTS_VM', 'updateClient parsed id=${updated.id}');
       _upsertInCurrentList(updated);
       return updated;
     } catch (_) {
+      debugTrace('CLIENTS_VM', 'updateClient exception');
       _setOffline(true);
       _saveErrorMessage = 'No se pudo editar el cliente.';
       return null;
@@ -302,6 +350,7 @@ class ClientsViewModel extends ChangeNotifier {
   }
 
   Future<bool> deleteClient(int clientId) async {
+    debugTrace('CLIENTS_VM', 'deleteClient start id=$clientId');
     final config = _currentConfig();
     final auth = _auth;
     if (config == null || auth == null) {
@@ -331,17 +380,27 @@ class ClientsViewModel extends ChangeNotifier {
     _saveErrorMessage = null;
     notifyListeners();
     final uri = config.buildUri('/${config.companyCode}/socios/$clientId');
+    debugTrace(
+      'CLIENTS_VM',
+      'DELETE $uri headers=${redactHeaders(_authHeaders(auth))}',
+    );
 
     try {
       final response = await http.delete(uri, headers: _authHeaders(auth));
       if (response.statusCode < 200 || response.statusCode >= 300) {
+        debugTrace(
+          'CLIENTS_VM',
+          'deleteClient failed status=${response.statusCode} body=${debugBodyPreview(response.body)}',
+        );
         _saveErrorMessage = _extractErrorMessage(response.body);
         return false;
       }
+      debugTrace('CLIENTS_VM', 'deleteClient ok status=${response.statusCode}');
       _setOffline(false);
       _clients.removeWhere((item) => item.id == clientId);
       return true;
     } catch (_) {
+      debugTrace('CLIENTS_VM', 'deleteClient exception');
       _setOffline(true);
       _saveErrorMessage = 'No se pudo eliminar el cliente.';
       return false;
@@ -391,18 +450,28 @@ class ClientsViewModel extends ChangeNotifier {
     final uri = config
         .buildUri('/${config.companyCode}/clientes')
         .replace(queryParameters: params);
+    debugTrace(
+      'CLIENTS_VM',
+      'GET $uri headers=${redactHeaders(_authHeaders(auth))}',
+    );
 
     try {
       final response = await http.get(uri, headers: _authHeaders(auth));
       if (response.statusCode < 200 || response.statusCode >= 300) {
+        debugTrace(
+          'CLIENTS_VM',
+          'loadPage failed status=${response.statusCode} body=${debugBodyPreview(response.body)}',
+        );
         _errorMessage = _extractErrorMessage(response.body);
         return;
       }
+      debugTrace('CLIENTS_VM', 'loadPage ok status=${response.statusCode}');
       _setOffline(false);
       _errorMessage = null;
       final data = _decodeJson(response.body);
       final rawList = _extractList(data);
       final fetched = rawList.map(Client.fromJson).toList();
+      debugTrace('CLIENTS_VM', 'loadPage parsed fetched=${fetched.length}');
 
       if (replaceItems) {
         _clients
@@ -421,6 +490,7 @@ class ClientsViewModel extends ChangeNotifier {
         _lastPage = fetched.length < kPageSize ? page : page + 1;
       }
     } catch (_) {
+      debugTrace('CLIENTS_VM', 'loadPage exception');
       _setOffline(true);
       if (_clients.isEmpty) {
         _errorMessage = 'No se pudo cargar clientes.';
@@ -436,7 +506,11 @@ class ClientsViewModel extends ChangeNotifier {
 
   Future<bool> _hasConnection() async {
     final results = await Connectivity().checkConnectivity();
-    return results.any((result) => result != ConnectivityResult.none);
+    final hasConnection = results.any(
+      (result) => result != ConnectivityResult.none,
+    );
+    debugTrace('CLIENTS_VM', 'Connectivity check -> $results / $hasConnection');
+    return hasConnection;
   }
 
   void _setOffline(bool value) {
@@ -449,15 +523,19 @@ class ClientsViewModel extends ChangeNotifier {
     final offline =
         results.isEmpty ||
         (results.length == 1 && results.first == ConnectivityResult.none);
+    debugTrace(
+      'CLIENTS_VM',
+      'Connectivity stream -> $results / offline=$offline',
+    );
     _setOffline(offline);
   }
 
   Map<String, String> _authHeaders(AuthViewModel auth) {
-    return {
+    return withDebugHeader({
       'Accept': 'application/json',
       'Authorization': auth.authorizationHeader,
       'Content-Type': 'application/json',
-    };
+    });
   }
 
   List<Map<String, dynamic>> _extractList(Map<String, dynamic> data) {

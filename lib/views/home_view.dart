@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/connectivity_viewmodel.dart';
 import '../viewmodels/products_viewmodel.dart';
+import '../utils/debug_tools.dart';
 import 'clients_view.dart';
 import 'login_view.dart';
 import 'products_view.dart';
@@ -28,6 +29,7 @@ class _HomeViewState extends State<HomeView> {
   void initState() {
     super.initState();
     _selectedIndex = widget.initialIndex;
+    debugTrace('NAV', 'Home init. section=$_selectedIndex');
   }
 
   @override
@@ -86,9 +88,11 @@ class _HomeViewState extends State<HomeView> {
   }
 
   void _onDestinationSelected(int index) {
+    debugTrace('NAV', 'Drawer tap. current=$_selectedIndex target=$index');
     Navigator.of(context).pop();
     if (index == _selectedIndex) return;
     if (index == MainMenuIndex.products) {
+      debugTrace('NAV', 'Navigating to Products via pushReplacement');
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) => ProductsView(
@@ -98,6 +102,7 @@ class _HomeViewState extends State<HomeView> {
       );
       return;
     }
+    debugTrace('NAV', 'Switching Home section to index=$index');
     setState(() => _selectedIndex = index);
   }
 

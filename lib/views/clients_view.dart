@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../models/client.dart';
 import '../theme/app_theme.dart';
+import '../utils/debug_tools.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/clients_viewmodel.dart';
 import 'client_branches_view.dart';
@@ -22,10 +23,12 @@ class _ClientsViewState extends State<ClientsView> {
   @override
   void initState() {
     super.initState();
+    debugTrace('CLIENTS_UI', 'ClientsView init');
     _scrollController = ScrollController()
       ..addListener(() {
         if (_scrollController.position.pixels >=
             _scrollController.position.maxScrollExtent - 180) {
+          debugTrace('CLIENTS_UI', 'Scroll near end -> loadMore');
           context.read<ClientsViewModel>().loadMore();
         }
       });
@@ -33,6 +36,7 @@ class _ClientsViewState extends State<ClientsView> {
 
   @override
   void dispose() {
+    debugTrace('CLIENTS_UI', 'ClientsView dispose');
     _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -196,6 +200,7 @@ class _ClientsViewState extends State<ClientsView> {
   }
 
   Future<void> _openCreateClient(BuildContext context) async {
+    debugTrace('CLIENTS_UI', 'Open create client form');
     final created = await Navigator.of(
       context,
     ).push<bool>(MaterialPageRoute(builder: (_) => const ClientFormView()));
@@ -205,6 +210,7 @@ class _ClientsViewState extends State<ClientsView> {
   }
 
   Future<void> _openEditClient(BuildContext context, Client client) async {
+    debugTrace('CLIENTS_UI', 'Open edit client id=${client.id}');
     final edited = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => ClientFormView(client: client)),
     );
@@ -214,6 +220,7 @@ class _ClientsViewState extends State<ClientsView> {
   }
 
   Future<void> _openClientBranches(BuildContext context, Client client) async {
+    debugTrace('CLIENTS_UI', 'Open branches for client id=${client.id}');
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => ClientBranchesView(client: client)),
     );
@@ -242,6 +249,7 @@ class _ClientsViewState extends State<ClientsView> {
 
     if (!context.mounted || accept != true) return;
 
+    debugTrace('CLIENTS_UI', 'Deleting client id=${client.id}');
     final vm = context.read<ClientsViewModel>();
     final ok = await vm.deleteClient(client.id);
     if (!context.mounted) return;

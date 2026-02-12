@@ -9,6 +9,7 @@ import '../constants/pagination.dart';
 import '../models/api_config.dart';
 import '../models/client.dart';
 import '../models/client_branch.dart';
+import '../utils/debug_tools.dart';
 import 'auth_viewmodel.dart';
 import 'settings_viewmodel.dart';
 
@@ -20,6 +21,10 @@ class ClientBranchesViewModel extends ChangeNotifier {
   }) : _settings = settings,
        _auth = auth,
        _client = client {
+    debugTrace(
+      'BRANCHES_VM',
+      'Init for client id=${client.id} ${client.nombre}',
+    );
     _connectivitySub = Connectivity().onConnectivityChanged.listen(
       _handleConnectivity,
     );
@@ -66,10 +71,12 @@ class ClientBranchesViewModel extends ChangeNotifier {
     final normalized = value.trim();
     if (_searchQuery == normalized) return;
     _searchQuery = normalized;
+    debugTrace('BRANCHES_VM', 'updateSearch -> "$_searchQuery"');
     loadInitial();
   }
 
   Future<void> loadInitial() async {
+    debugTrace('BRANCHES_VM', 'loadInitial start query="$_searchQuery"');
     _isLoading = true;
     _errorMessage = null;
     _currentPage = 1;
@@ -79,18 +86,27 @@ class ClientBranchesViewModel extends ChangeNotifier {
       await _loadPage(page: 1, replaceItems: true);
     } finally {
       _isLoading = false;
+      debugTrace(
+        'BRANCHES_VM',
+        'loadInitial end count=${_branches.length} error=$_errorMessage',
+      );
       notifyListeners();
     }
   }
 
   Future<void> loadMore() async {
     if (_isLoading || _isLoadingMore || !hasMore) return;
+    debugTrace('BRANCHES_VM', 'loadMore nextPage=${_currentPage + 1}');
     _isLoadingMore = true;
     notifyListeners();
     try {
       await _loadPage(page: _currentPage + 1, replaceItems: false);
     } finally {
       _isLoadingMore = false;
+      debugTrace(
+        'BRANCHES_VM',
+        'loadMore end count=${_branches.length} hasMore=$hasMore',
+      );
       notifyListeners();
     }
   }
@@ -106,6 +122,7 @@ class ClientBranchesViewModel extends ChangeNotifier {
     String? correo,
     int? rutaId,
   }) async {
+    debugTrace('BRANCHES_VM', 'createBranch start nombre=$nombre');
     final config = _currentConfig();
     if (config == null) {
       _saveErrorMessage = 'Configura la API antes de crear sucursales.';
@@ -147,6 +164,10 @@ class ClientBranchesViewModel extends ChangeNotifier {
     };
 
     final uri = config.buildUri('/${config.companyCode}/socios-sucursales');
+    debugTrace(
+      'BRANCHES_VM',
+      'POST $uri headers=${redactHeaders(_authHeaders())} body=${debugBodyPreview(jsonEncode(payload))}',
+    );
     try {
       final response = await http.post(
         uri,
@@ -154,9 +175,17 @@ class ClientBranchesViewModel extends ChangeNotifier {
         body: jsonEncode(payload),
       );
       if (response.statusCode < 200 || response.statusCode >= 300) {
+        debugTrace(
+          'BRANCHES_VM',
+          'createBranch failed status=${response.statusCode} body=${debugBodyPreview(response.body)}',
+        );
         _saveErrorMessage = _extractErrorMessage(response.body);
         return null;
       }
+      debugTrace(
+        'BRANCHES_VM',
+        'createBranch ok status=${response.statusCode}',
+      );
       _setOffline(false);
       final data = _decodeJson(response.body);
       final raw = data['socio_sucursal'];
@@ -167,9 +196,11 @@ class ClientBranchesViewModel extends ChangeNotifier {
       final created = ClientBranch.fromJson(
         raw.map((key, value) => MapEntry(key.toString(), value)),
       );
+      debugTrace('BRANCHES_VM', 'createBranch parsed id=${created.id}');
       _upsertInCurrentList(created);
       return created;
     } catch (_) {
+      debugTrace('BRANCHES_VM', 'createBranch exception');
       _setOffline(true);
       _saveErrorMessage = 'No se pudo crear la sucursal.';
       return null;
@@ -189,6 +220,7 @@ class ClientBranchesViewModel extends ChangeNotifier {
     String? correo,
     int? rutaId,
   }) async {
+    debugTrace('BRANCHES_VM', 'updateBranch start id=$branchId nombre=$nombre');
     final config = _currentConfig();
     if (config == null) {
       _saveErrorMessage = 'Configura la API antes de editar sucursales.';
@@ -231,6 +263,10 @@ class ClientBranchesViewModel extends ChangeNotifier {
     final uri = config.buildUri(
       '/${config.companyCode}/socios-sucursales/$branchId',
     );
+    debugTrace(
+      'BRANCHES_VM',
+      'PUT $uri headers=${redactHeaders(_authHeaders())} body=${debugBodyPreview(jsonEncode(payload))}',
+    );
     try {
       final response = await http.put(
         uri,
@@ -238,9 +274,17 @@ class ClientBranchesViewModel extends ChangeNotifier {
         body: jsonEncode(payload),
       );
       if (response.statusCode < 200 || response.statusCode >= 300) {
+        debugTrace(
+          'BRANCHES_VM',
+          'updateBranch failed status=${response.statusCode} body=${debugBodyPreview(response.body)}',
+        );
         _saveErrorMessage = _extractErrorMessage(response.body);
         return null;
       }
+      debugTrace(
+        'BRANCHES_VM',
+        'updateBranch ok status=${response.statusCode}',
+      );
       _setOffline(false);
       final data = _decodeJson(response.body);
       final raw = data['socio_sucursal'];
@@ -251,9 +295,11 @@ class ClientBranchesViewModel extends ChangeNotifier {
       final updated = ClientBranch.fromJson(
         raw.map((key, value) => MapEntry(key.toString(), value)),
       );
+      debugTrace('BRANCHES_VM', 'updateBranch parsed id=${updated.id}');
       _upsertInCurrentList(updated);
       return updated;
     } catch (_) {
+      debugTrace('BRANCHES_VM', 'updateBranch exception');
       _setOffline(true);
       _saveErrorMessage = 'No se pudo editar la sucursal.';
       return null;
@@ -264,6 +310,7 @@ class ClientBranchesViewModel extends ChangeNotifier {
   }
 
   Future<bool> deleteBranch(int branchId) async {
+    debugTrace('BRANCHES_VM', 'deleteBranch start id=$branchId');
     final config = _currentConfig();
     if (config == null) {
       _saveErrorMessage = 'Configura la API antes de eliminar sucursales.';
@@ -294,17 +341,30 @@ class ClientBranchesViewModel extends ChangeNotifier {
     final uri = config.buildUri(
       '/${config.companyCode}/socios-sucursales/$branchId',
     );
+    debugTrace(
+      'BRANCHES_VM',
+      'DELETE $uri headers=${redactHeaders(_authHeaders())}',
+    );
 
     try {
       final response = await http.delete(uri, headers: _authHeaders());
       if (response.statusCode < 200 || response.statusCode >= 300) {
+        debugTrace(
+          'BRANCHES_VM',
+          'deleteBranch failed status=${response.statusCode} body=${debugBodyPreview(response.body)}',
+        );
         _saveErrorMessage = _extractErrorMessage(response.body);
         return false;
       }
+      debugTrace(
+        'BRANCHES_VM',
+        'deleteBranch ok status=${response.statusCode}',
+      );
       _setOffline(false);
       _branches.removeWhere((item) => item.id == branchId);
       return true;
     } catch (_) {
+      debugTrace('BRANCHES_VM', 'deleteBranch exception');
       _setOffline(true);
       _saveErrorMessage = 'No se pudo eliminar la sucursal.';
       return false;
@@ -352,19 +412,29 @@ class ClientBranchesViewModel extends ChangeNotifier {
     final uri = config
         .buildUri('/${config.companyCode}/socios/${_client.id}/sucursales')
         .replace(queryParameters: params);
+    debugTrace(
+      'BRANCHES_VM',
+      'GET $uri headers=${redactHeaders(_authHeaders())}',
+    );
 
     try {
       final response = await http.get(uri, headers: _authHeaders());
       if (response.statusCode < 200 || response.statusCode >= 300) {
+        debugTrace(
+          'BRANCHES_VM',
+          'loadPage failed status=${response.statusCode} body=${debugBodyPreview(response.body)}',
+        );
         _errorMessage = _extractErrorMessage(response.body);
         return;
       }
+      debugTrace('BRANCHES_VM', 'loadPage ok status=${response.statusCode}');
 
       _setOffline(false);
       _errorMessage = null;
       final data = _decodeJson(response.body);
       final rawList = _extractList(data);
       final fetched = rawList.map(ClientBranch.fromJson).toList();
+      debugTrace('BRANCHES_VM', 'loadPage parsed fetched=${fetched.length}');
 
       if (replaceItems) {
         _branches
@@ -383,6 +453,7 @@ class ClientBranchesViewModel extends ChangeNotifier {
         _lastPage = fetched.length < kPageSize ? page : page + 1;
       }
     } catch (_) {
+      debugTrace('BRANCHES_VM', 'loadPage exception');
       _setOffline(true);
       if (_branches.isEmpty) {
         _errorMessage = 'No se pudo cargar sucursales.';
@@ -398,7 +469,14 @@ class ClientBranchesViewModel extends ChangeNotifier {
 
   Future<bool> _hasConnection() async {
     final results = await Connectivity().checkConnectivity();
-    return results.any((result) => result != ConnectivityResult.none);
+    final hasConnection = results.any(
+      (result) => result != ConnectivityResult.none,
+    );
+    debugTrace(
+      'BRANCHES_VM',
+      'Connectivity check -> $results / $hasConnection',
+    );
+    return hasConnection;
   }
 
   void _setOffline(bool value) {
@@ -411,15 +489,19 @@ class ClientBranchesViewModel extends ChangeNotifier {
     final offline =
         results.isEmpty ||
         (results.length == 1 && results.first == ConnectivityResult.none);
+    debugTrace(
+      'BRANCHES_VM',
+      'Connectivity stream -> $results / offline=$offline',
+    );
     _setOffline(offline);
   }
 
   Map<String, String> _authHeaders() {
-    return {
+    return withDebugHeader({
       'Accept': 'application/json',
       'Authorization': _auth.authorizationHeader,
       'Content-Type': 'application/json',
-    };
+    });
   }
 
   String? _nullableText(String? value) {

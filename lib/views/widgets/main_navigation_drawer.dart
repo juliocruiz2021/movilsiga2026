@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../utils/debug_tools.dart';
+
 class MainMenuIndex {
   const MainMenuIndex._();
 
@@ -28,7 +30,10 @@ class MainNavigationDrawer extends StatelessWidget {
   Widget build(BuildContext context) {
     return NavigationDrawer(
       selectedIndex: selectedIndex,
-      onDestinationSelected: onDestinationSelected,
+      onDestinationSelected: (index) {
+        debugTrace('DRAWER', 'Destination selected index=$index');
+        onDestinationSelected(index);
+      },
       children: [
         const Padding(
           padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
@@ -68,7 +73,10 @@ class MainNavigationDrawer extends StatelessWidget {
           child: ListTile(
             leading: const Icon(Icons.settings_outlined),
             title: const Text('Configuracion'),
-            onTap: onOpenSettings,
+            onTap: () {
+              debugTrace('DRAWER', 'Settings tapped');
+              onOpenSettings();
+            },
           ),
         ),
         Padding(
@@ -76,7 +84,10 @@ class MainNavigationDrawer extends StatelessWidget {
           child: ListTile(
             leading: const Icon(Icons.logout),
             title: const Text('Cerrar sesion'),
-            onTap: onLogout,
+            onTap: () {
+              debugTrace('DRAWER', 'Logout tapped');
+              onLogout();
+            },
           ),
         ),
       ],

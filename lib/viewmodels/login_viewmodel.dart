@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/api_config.dart';
+import '../utils/debug_tools.dart';
 import 'auth_viewmodel.dart';
 import 'settings_viewmodel.dart';
 
@@ -105,6 +106,10 @@ class LoginViewModel extends ChangeNotifier {
       }
 
       final hasConnection = await _hasConnection();
+      debugTrace(
+        'LOGIN_VM',
+        'login start hasConnection=$hasConnection email=$_email',
+      );
       if (!hasConnection) {
         if (await _tryOfflineLogin(allowWithoutToken: true)) {
           return;
@@ -116,6 +121,10 @@ class LoginViewModel extends ChangeNotifier {
 
       final deviceName = await _getDeviceName();
       final response = await _loginRequest(apiConfig, companyToken, deviceName);
+      debugTrace(
+        'LOGIN_VM',
+        'login response status=${response.statusCode} body=${debugBodyPreview(response.body)}',
+      );
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final data = _decodeJson(response.body);
         final message = data['message'] as String? ?? 'Login correcto.';
@@ -171,17 +180,21 @@ class LoginViewModel extends ChangeNotifier {
     String deviceName,
   ) {
     final uri = config.buildUri('/${config.companyCode}/login');
-    final headers = <String, String>{
+    final headers = withDebugHeader(<String, String>{
       'Accept': 'application/json',
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $companyToken',
       'X-Device-Name': deviceName,
-    };
+    });
     final payload = {
       'email': _email,
       'password': _password,
       'device_name': deviceName,
     };
+    debugTrace(
+      'LOGIN_VM',
+      'POST $uri headers=${redactHeaders(headers)} body=${debugBodyPreview(jsonEncode(payload))}',
+    );
     return http.post(uri, headers: headers, body: jsonEncode(payload));
   }
 
