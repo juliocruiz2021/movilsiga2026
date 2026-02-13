@@ -439,3 +439,15 @@ Notas:
 - Build de distribucion actualizado:
   - `flutter build apk --release` generado correctamente.
   - APK en `build/app/outputs/flutter-apk/app-release.apk` (~64.4 MB).
+
+### 2026-02-13 (tipografia final ficha/lista productos)
+- Ajuste solicitado sobre texto de producto:
+  - en ficha (grilla), el nombre queda del mismo tamaño que precio/cantidad y sin negrilla,
+  - en lista, el nombre queda al mismo tamaño que en la ficha para mantener consistencia visual.
+- Se mantiene configuracion de franja inferior:
+  - color primario del tema (`palette.primary`),
+  - precio izquierda,
+  - cantidad derecha (sin etiqueta "Stock").
+- Validacion:
+  - `flutter analyze lib/views/products_view.dart` en verde.
+- APK release regenerado despues de los ajustes visuales finales.

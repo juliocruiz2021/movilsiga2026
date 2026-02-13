@@ -483,13 +483,9 @@ class _ProductCard extends StatelessWidget {
                           product.nombre,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontSize:
-                                ((theme.textTheme.bodyMedium?.fontSize ?? 14) -
-                                        1)
-                                    .clamp(10.0, 22.0)
-                                    .toDouble(),
-                            fontWeight: FontWeight.w700,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontSize: priceStockSize,
+                            fontWeight: FontWeight.w400,
                             color: Colors.white,
                           ),
                         ),
@@ -535,7 +531,6 @@ class _ProductCard extends StatelessWidget {
       },
     );
   }
-
 }
 
 class _ProductListTile extends StatelessWidget {
@@ -577,8 +572,11 @@ class _ProductListTile extends StatelessWidget {
                 product.nombre,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontSize: ((theme.textTheme.bodySmall?.fontSize ?? 12) - 1)
+                      .clamp(8.0, 18.0)
+                      .toDouble(),
+                  fontWeight: FontWeight.w400,
                   color: palette.textStrong,
                 ),
               ),
