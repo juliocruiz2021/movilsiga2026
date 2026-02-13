@@ -14,6 +14,12 @@ class Client {
     this.celular,
     this.correo,
     this.direccion,
+    this.codigoGiro,
+    this.giroDescripcion,
+    this.giroId,
+    this.municipioId,
+    this.municipioCodigo,
+    this.municipioDescripcion,
     this.gpsUbicacion,
     this.rutaId,
     this.rutaCodigo,
@@ -35,6 +41,12 @@ class Client {
   final String? celular;
   final String? correo;
   final String? direccion;
+  final String? codigoGiro;
+  final String? giroDescripcion;
+  final int? giroId;
+  final int? municipioId;
+  final String? municipioCodigo;
+  final String? municipioDescripcion;
   final String? gpsUbicacion;
   final int? rutaId;
   final String? rutaCodigo;
@@ -59,6 +71,16 @@ class Client {
     final ruta = rutaRaw is Map<String, dynamic>
         ? rutaRaw
         : (rutaRaw is Map ? rutaRaw.map((k, v) => MapEntry('$k', v)) : null);
+    final giroRaw = json['giro'];
+    final giro = giroRaw is Map<String, dynamic>
+        ? giroRaw
+        : (giroRaw is Map ? giroRaw.map((k, v) => MapEntry('$k', v)) : null);
+    final municipioRaw = json['municipio'];
+    final municipio = municipioRaw is Map<String, dynamic>
+        ? municipioRaw
+        : (municipioRaw is Map
+              ? municipioRaw.map((k, v) => MapEntry('$k', v))
+              : null);
 
     return Client(
       id: _toInt(json['id']) ?? 0,
@@ -75,6 +97,16 @@ class Client {
       celular: _toStringOrNull(json['celular']),
       correo: _toStringOrNull(json['correo']),
       direccion: _toStringOrNull(json['direccion']),
+      codigoGiro:
+          _toStringOrNull(json['codigo_giro']) ??
+          _toStringOrNull(giro?['codigo']),
+      giroDescripcion: _toStringOrNull(giro?['descripcion']),
+      giroId: _toInt(json['giro_id']),
+      municipioId: _toInt(json['municipio_id']),
+      municipioCodigo: _toStringOrNull(municipio?['codigo']),
+      municipioDescripcion:
+          _toStringOrNull(municipio?['descripcion']) ??
+          _toStringOrNull(municipio?['municipio']),
       gpsUbicacion: _toStringOrNull(json['gps_ubicacion']),
       rutaId: _toInt(json['ruta_id']),
       rutaCodigo: _toStringOrNull(ruta?['codigo']),

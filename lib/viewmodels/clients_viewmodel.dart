@@ -8,6 +8,9 @@ import 'package:http/http.dart' as http;
 import '../constants/pagination.dart';
 import '../models/api_config.dart';
 import '../models/client.dart';
+import '../models/giro_option.dart';
+import '../models/municipio_option.dart';
+import '../models/route_option.dart';
 import '../utils/debug_tools.dart';
 import 'auth_viewmodel.dart';
 import 'settings_viewmodel.dart';
@@ -118,6 +121,168 @@ class ClientsViewModel extends ChangeNotifier {
 
   Future<void> refresh() => loadInitial();
 
+  Future<List<RouteOption>> searchRoutes({String query = ''}) async {
+    final config = _currentConfig();
+    final auth = _auth;
+    if (config == null || auth == null) return const [];
+
+    if (auth.token.isEmpty) {
+      await auth.reloadFromStorage();
+    }
+    if (auth.token.isEmpty) return const [];
+
+    final hasConnection = await _hasConnection();
+    if (!hasConnection) {
+      _setOffline(true);
+      return const [];
+    }
+
+    final params = <String, String>{'per_page': '20', 'activo': '1'};
+    final normalizedQuery = query.trim();
+    if (normalizedQuery.isNotEmpty) {
+      params['q'] = normalizedQuery;
+    }
+
+    final uri = config
+        .buildUri('/${config.companyCode}/rutas')
+        .replace(queryParameters: params);
+    debugTrace('CLIENTS_VM', 'GET routes $uri');
+
+    try {
+      final response = await http.get(uri, headers: _authHeaders(auth));
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        debugTrace(
+          'CLIENTS_VM',
+          'searchRoutes failed status=${response.statusCode} body=${debugBodyPreview(response.body)}',
+        );
+        return const [];
+      }
+
+      _setOffline(false);
+      final data = _decodeJson(response.body);
+      final raw = data['rutas'];
+      if (raw is! List) return const [];
+
+      return raw
+          .whereType<Map>()
+          .map((item) => item.map((k, v) => MapEntry(k.toString(), v)))
+          .map(RouteOption.fromJson)
+          .toList();
+    } catch (e, st) {
+      debugTrace('CLIENTS_VM', 'searchRoutes exception: $e\n$st');
+      _setOffline(true);
+      return const [];
+    }
+  }
+
+  Future<List<GiroOption>> searchGiros({String query = ''}) async {
+    final config = _currentConfig();
+    final auth = _auth;
+    if (config == null || auth == null) return const [];
+
+    if (auth.token.isEmpty) {
+      await auth.reloadFromStorage();
+    }
+    if (auth.token.isEmpty) return const [];
+
+    final hasConnection = await _hasConnection();
+    if (!hasConnection) {
+      _setOffline(true);
+      return const [];
+    }
+
+    final params = <String, String>{'per_page': '20'};
+    final normalizedQuery = query.trim();
+    if (normalizedQuery.isNotEmpty) {
+      params['q'] = normalizedQuery;
+    }
+
+    final uri = config
+        .buildUri('/${config.companyCode}/catalogos-dte/actividades-economicas')
+        .replace(queryParameters: params);
+    debugTrace('CLIENTS_VM', 'GET giros $uri');
+
+    try {
+      final response = await http.get(uri, headers: _authHeaders(auth));
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        debugTrace(
+          'CLIENTS_VM',
+          'searchGiros failed status=${response.statusCode} body=${debugBodyPreview(response.body)}',
+        );
+        return const [];
+      }
+
+      _setOffline(false);
+      final data = _decodeJson(response.body);
+      final raw = data['actividades_economicas'];
+      if (raw is! List) return const [];
+
+      return raw
+          .whereType<Map>()
+          .map((item) => item.map((k, v) => MapEntry(k.toString(), v)))
+          .map(GiroOption.fromJson)
+          .toList();
+    } catch (e, st) {
+      debugTrace('CLIENTS_VM', 'searchGiros exception: $e\n$st');
+      _setOffline(true);
+      return const [];
+    }
+  }
+
+  Future<List<MunicipioOption>> searchMunicipios({String query = ''}) async {
+    final config = _currentConfig();
+    final auth = _auth;
+    if (config == null || auth == null) return const [];
+
+    if (auth.token.isEmpty) {
+      await auth.reloadFromStorage();
+    }
+    if (auth.token.isEmpty) return const [];
+
+    final hasConnection = await _hasConnection();
+    if (!hasConnection) {
+      _setOffline(true);
+      return const [];
+    }
+
+    final params = <String, String>{'per_page': '20'};
+    final normalizedQuery = query.trim();
+    if (normalizedQuery.isNotEmpty) {
+      params['q'] = normalizedQuery;
+    }
+
+    final uri = config
+        .buildUri('/${config.companyCode}/catalogos-dte/departamentos')
+        .replace(queryParameters: params);
+    debugTrace('CLIENTS_VM', 'GET municipios $uri');
+
+    try {
+      final response = await http.get(uri, headers: _authHeaders(auth));
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        debugTrace(
+          'CLIENTS_VM',
+          'searchMunicipios failed status=${response.statusCode} body=${debugBodyPreview(response.body)}',
+        );
+        return const [];
+      }
+
+      _setOffline(false);
+      final data = _decodeJson(response.body);
+      final raw = data['departamentos'];
+      if (raw is! List) return const [];
+
+      return raw
+          .whereType<Map>()
+          .map((item) => item.map((k, v) => MapEntry(k.toString(), v)))
+          .map(MunicipioOption.fromJson)
+          .toList();
+    } catch (e, st) {
+      debugTrace('CLIENTS_VM', 'searchMunicipios exception: $e\n$st');
+      _setOffline(true);
+      return const [];
+    }
+  }
+
   Future<Client?> createClient({
     required String codigo,
     required String nombre,
@@ -130,7 +295,6 @@ class ClientsViewModel extends ChangeNotifier {
     String? correo,
     String? direccion,
     String? gpsUbicacion,
-    String? codigoGiro,
     int? giroId,
     int? municipioId,
     int? rutaId,
@@ -188,7 +352,6 @@ class ClientsViewModel extends ChangeNotifier {
       if (_hasValue(correo)) 'correo': correo!.trim(),
       if (_hasValue(direccion)) 'direccion': direccion!.trim(),
       if (_hasValue(gpsUbicacion)) 'gps_ubicacion': gpsUbicacion!.trim(),
-      if (_hasValue(codigoGiro)) 'codigo_giro': codigoGiro!.trim(),
       if (giroId case final id) 'giro_id': id,
       if (municipioId case final id) 'municipio_id': id,
       if (rutaId case final id) 'ruta_id': id,
@@ -254,7 +417,6 @@ class ClientsViewModel extends ChangeNotifier {
     String? correo,
     String? direccion,
     String? gpsUbicacion,
-    String? codigoGiro,
     int? giroId,
     int? municipioId,
     int? rutaId,
@@ -307,7 +469,6 @@ class ClientsViewModel extends ChangeNotifier {
       'correo': _nullableText(correo),
       'direccion': _nullableText(direccion),
       'gps_ubicacion': _nullableText(gpsUbicacion),
-      'codigo_giro': _nullableText(codigoGiro),
       'giro_id': giroId,
       'municipio_id': municipioId,
       'ruta_id': rutaId,
@@ -353,6 +514,97 @@ class ClientsViewModel extends ChangeNotifier {
       _setOffline(true);
       _saveErrorMessage = 'No se pudo editar el cliente.';
       return null;
+    } finally {
+      _isSaving = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> updateClientGps({
+    required int clientId,
+    String? gpsUbicacion,
+  }) async {
+    debugTrace('CLIENTS_VM', 'updateClientGps start id=$clientId');
+    if (_isSaving) {
+      _saveErrorMessage = 'Ya hay un guardado en curso.';
+      notifyListeners();
+      return false;
+    }
+
+    final config = _currentConfig();
+    final auth = _auth;
+    if (config == null || auth == null) {
+      _saveErrorMessage = 'Configura la API antes de editar clientes.';
+      notifyListeners();
+      return false;
+    }
+
+    if (auth.token.isEmpty) {
+      await auth.reloadFromStorage();
+    }
+    if (auth.token.isEmpty) {
+      _saveErrorMessage = 'No hay sesion activa.';
+      notifyListeners();
+      return false;
+    }
+
+    final hasConnection = await _hasConnection();
+    if (!hasConnection) {
+      _setOffline(true);
+      _saveErrorMessage = 'Sin internet para actualizar GPS.';
+      notifyListeners();
+      return false;
+    }
+
+    _isSaving = true;
+    _saveErrorMessage = null;
+    notifyListeners();
+
+    final payload = <String, dynamic>{
+      'gps_ubicacion': _nullableText(gpsUbicacion),
+    };
+
+    final uri = config.buildUri('/${config.companyCode}/socios/$clientId');
+    debugTrace(
+      'CLIENTS_VM',
+      'PUT GPS $uri headers=${redactHeaders(_authHeaders(auth))} body=${debugBodyPreview(jsonEncode(payload))}',
+    );
+
+    try {
+      final response = await http.put(
+        uri,
+        headers: _authHeaders(auth),
+        body: jsonEncode(payload),
+      );
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        debugTrace(
+          'CLIENTS_VM',
+          'updateClientGps failed status=${response.statusCode} body=${debugBodyPreview(response.body)}',
+        );
+        _saveErrorMessage = _extractErrorMessage(response.body);
+        return false;
+      }
+
+      _setOffline(false);
+      final data = _decodeJson(response.body);
+      final socioRaw = data['socio'];
+      if (socioRaw is Map) {
+        final updated = Client.fromJson(
+          socioRaw.map((key, value) => MapEntry(key.toString(), value)),
+        );
+        _upsertInCurrentList(updated);
+      }
+
+      debugTrace(
+        'CLIENTS_VM',
+        'updateClientGps ok status=${response.statusCode}',
+      );
+      return true;
+    } catch (_) {
+      debugTrace('CLIENTS_VM', 'updateClientGps exception');
+      _setOffline(true);
+      _saveErrorMessage = 'No se pudo actualizar GPS.';
+      return false;
     } finally {
       _isSaving = false;
       notifyListeners();

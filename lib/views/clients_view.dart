@@ -8,6 +8,7 @@ import '../utils/debug_tools.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/clients_viewmodel.dart';
 import 'client_form_view.dart';
+import 'clients_route_map_view.dart';
 
 class ClientsView extends StatefulWidget {
   const ClientsView({super.key});
@@ -84,15 +85,22 @@ class _ClientsViewState extends State<ClientsView> {
             TextPosition(offset: _searchController.text.length),
           );
         }
+        final routeClients = _clientsWithGps(vm.clients);
 
         return Column(
           children: [
             _ClientsToolbar(
               searchController: _searchController,
               canCreateClients: canCreateClients,
+              canOpenRoute: routeClients.isNotEmpty,
               onSearch: vm.updateSearch,
               onCreate: () => _openCreateClient(context),
               onRefresh: vm.refresh,
+              onOpenRoute: () => _openRoutePlanner(
+                context,
+                routeClients,
+                title: 'Ruta de clientes (${routeClients.length})',
+              ),
             ),
             const SizedBox(height: 10),
             Expanded(
@@ -160,7 +168,6 @@ class _ClientsViewState extends State<ClientsView> {
           final client = vm.clients[index];
           return _ClientListRow(
             client: client,
-            canDelete: canDeleteClients,
             onOpenDetail: canUpdateClients
                 ? () => _openEditClient(context, client)
                 : () => _openClientReadOnly(context, client),
@@ -228,13 +235,10 @@ class _ClientsViewState extends State<ClientsView> {
   Future<void> _openRouteInMap(Client client) async {
     final gps = client.gpsUbicacion?.trim();
     if (gps == null || gps.isEmpty) return;
-
-    final query = Uri.encodeComponent(gps);
-    final uri = Uri.parse(
-      'https://www.google.com/maps/search/?api=1&query=$query',
-    );
-    debugTrace('CLIENTS_UI', 'Open map for client id=${client.id} gps=$gps');
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!mounted) return;
+    await _openRoutePlanner(context, [
+      client,
+    ], title: 'Ruta a ${client.nombre}');
   }
 
   Future<void> _confirmDeleteClient(BuildContext context, Client client) async {
@@ -305,22 +309,49 @@ class _ClientsViewState extends State<ClientsView> {
     if (telefono != null && telefono.isNotEmpty) return telefono;
     return null;
   }
+
+  List<Client> _clientsWithGps(List<Client> source) {
+    return source
+        .where((c) => (c.gpsUbicacion ?? '').trim().isNotEmpty)
+        .toList();
+  }
+
+  Future<void> _openRoutePlanner(
+    BuildContext context,
+    List<Client> clients, {
+    String? title,
+  }) async {
+    if (clients.isEmpty) return;
+    debugTrace(
+      'CLIENTS_UI',
+      'Open route planner with ${clients.length} clients',
+    );
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ClientsRouteMapView(clients: clients, title: title),
+      ),
+    );
+  }
 }
 
 class _ClientsToolbar extends StatefulWidget {
   const _ClientsToolbar({
     required this.searchController,
     required this.canCreateClients,
+    required this.canOpenRoute,
     required this.onSearch,
     required this.onCreate,
     required this.onRefresh,
+    required this.onOpenRoute,
   });
 
   final TextEditingController searchController;
   final bool canCreateClients;
+  final bool canOpenRoute;
   final ValueChanged<String> onSearch;
   final VoidCallback onCreate;
   final Future<void> Function() onRefresh;
+  final VoidCallback onOpenRoute;
 
   @override
   State<_ClientsToolbar> createState() => _ClientsToolbarState();
@@ -368,6 +399,11 @@ class _ClientsToolbarState extends State<_ClientsToolbar> {
           icon: const Icon(Icons.refresh),
           tooltip: 'Actualizar',
         ),
+        IconButton(
+          onPressed: widget.canOpenRoute ? widget.onOpenRoute : null,
+          icon: const Icon(Icons.alt_route_outlined),
+          tooltip: 'Ver ruta',
+        ),
         if (widget.canCreateClients)
           IconButton(
             onPressed: widget.onCreate,
@@ -386,7 +422,6 @@ class _ClientListRow extends StatelessWidget {
     required this.onCall,
     required this.onWhatsApp,
     required this.onOpenMap,
-    required this.canDelete,
     this.onDelete,
   });
 
@@ -395,7 +430,6 @@ class _ClientListRow extends StatelessWidget {
   final VoidCallback onCall;
   final VoidCallback onWhatsApp;
   final VoidCallback onOpenMap;
-  final bool canDelete;
   final VoidCallback? onDelete;
 
   @override
@@ -405,8 +439,7 @@ class _ClientListRow extends StatelessWidget {
     final subtitle = (client.nombreComercial ?? '').trim().isNotEmpty
         ? client.nombreComercial!.trim()
         : client.codigo;
-    final phone = _phoneLabel(client);
-    final hasPhone = phone != '-';
+    final hasPhone = _hasPhone(client);
     final hasGps = (client.gpsUbicacion ?? '').trim().isNotEmpty;
 
     return Container(
@@ -429,6 +462,7 @@ class _ClientListRow extends StatelessWidget {
             child: InkWell(
               borderRadius: BorderRadius.circular(10),
               onTap: onOpenDetail,
+              onLongPress: onDelete,
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
                 child: Column(
@@ -438,7 +472,7 @@ class _ClientListRow extends StatelessWidget {
                       client.nombre,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleSmall?.copyWith(
+                      style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w700,
                         color: palette.textStrong,
                       ),
@@ -448,8 +482,9 @@ class _ClientListRow extends StatelessWidget {
                       subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium?.copyWith(
+                      style: theme.textTheme.bodySmall?.copyWith(
                         color: palette.textMuted,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
@@ -459,27 +494,13 @@ class _ClientListRow extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           SizedBox(
-            width: 170,
+            width: 82,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    Flexible(
-                      child: Text(
-                        phone,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: hasPhone
-                              ? palette.textStrong
-                              : palette.textMuted,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
                     _IconAction(
                       icon: Icons.phone_outlined,
                       color: palette.primary,
@@ -496,52 +517,25 @@ class _ClientListRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 _ActionLink(
-                  icon: Icons.route_outlined,
                   label: client.routeLabel,
                   onTap: hasGps ? onOpenMap : null,
                 ),
               ],
             ),
           ),
-          if (canDelete)
-            PopupMenuButton<_ClientMenuAction>(
-              tooltip: 'Opciones',
-              onSelected: (action) {
-                switch (action) {
-                  case _ClientMenuAction.open:
-                    onOpenDetail();
-                    break;
-                  case _ClientMenuAction.delete:
-                    onDelete?.call();
-                    break;
-                }
-              },
-              itemBuilder: (context) => const [
-                PopupMenuItem(
-                  value: _ClientMenuAction.open,
-                  child: Text('Abrir ficha'),
-                ),
-                PopupMenuItem(
-                  value: _ClientMenuAction.delete,
-                  child: Text('Eliminar'),
-                ),
-              ],
-            ),
         ],
       ),
     );
   }
 
-  String _phoneLabel(Client client) {
+  bool _hasPhone(Client client) {
     final celular = client.celular?.trim();
-    if (celular != null && celular.isNotEmpty) return celular;
+    if (celular != null && celular.isNotEmpty) return true;
     final telefono = client.telefono?.trim();
-    if (telefono != null && telefono.isNotEmpty) return telefono;
-    return '-';
+    if (telefono != null && telefono.isNotEmpty) return true;
+    return false;
   }
 }
-
-enum _ClientMenuAction { open, delete }
 
 class _IconAction extends StatelessWidget {
   const _IconAction({
@@ -560,9 +554,11 @@ class _IconAction extends StatelessWidget {
   Widget build(BuildContext context) {
     return IconButton(
       onPressed: onTap,
-      visualDensity: VisualDensity.compact,
-      iconSize: 18,
-      splashRadius: 18,
+      visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+      iconSize: 17,
+      splashRadius: 16,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
       tooltip: tooltip,
       icon: Icon(
         icon,
@@ -573,9 +569,8 @@ class _IconAction extends StatelessWidget {
 }
 
 class _ActionLink extends StatelessWidget {
-  const _ActionLink({required this.icon, required this.label, this.onTap});
+  const _ActionLink({required this.label, this.onTap});
 
-  final IconData icon;
   final String label;
   final VoidCallback? onTap;
 
@@ -590,25 +585,16 @@ class _ActionLink extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 15, color: color),
-            const SizedBox(width: 4),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.right,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.right,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: color,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
     );

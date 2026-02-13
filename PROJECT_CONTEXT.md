@@ -401,3 +401,22 @@ Notas:
   - ubicacion actual del dispositivo,
   - seleccion manual en mapa.
 - Nota de continuidad: este mismo patron visual/funcional se debe reutilizar en Proveedores y Pedidos para consistencia de experiencia en ruta.
+
+### 2026-02-13 (alineacion final ficha cliente + validacion total)
+- Se alinea la ficha de cliente al contrato final APISIGA:
+  - `giro` se busca en `catalogos-dte/actividades-economicas` (`dte_cat_019`),
+  - `municipio` se busca en `catalogos-dte/departamentos` (vista `departamentos`).
+- Se mantiene selector de busqueda para ambos campos (no ID manual), enviando:
+  - `giro_id`,
+  - `municipio_id`.
+- Cambio de UX solicitado:
+  - campo `Municipio` movido debajo de `Direccion` en la seccion `Ubicacion y ruta`.
+  - etiqueta visible queda solo como `Municipio` (sin `ID`).
+- Ajustes de estabilidad/lint:
+  - limpieza de warnings en `products_view.dart` y `product_detail_view.dart` para dejar `flutter analyze` limpio.
+- Pruebas ejecutadas (resultado):
+  - `flutter analyze` en verde (sin issues).
+  - `flutter test` en verde.
+  - `flutter build apk --release` generado correctamente.
+- APK actual:
+  - `build/app/outputs/flutter-apk/app-release.apk` (~64.4 MB).

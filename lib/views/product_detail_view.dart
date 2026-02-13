@@ -29,14 +29,14 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     _product = widget.product;
   }
 
-  Future<void> _uploadPhoto(BuildContext context) async {
+  Future<void> _uploadPhoto() async {
     if (_isUploading) return;
+    final vm = context.read<ProductsViewModel>();
     final picker = ImagePicker();
     final picked = await _pickImage(context, picker);
     if (picked == null) return;
 
     setState(() => _isUploading = true);
-    final vm = context.read<ProductsViewModel>();
     final updated = await vm.uploadProductPhoto(
       product: _product,
       filePath: picked.path,
@@ -203,9 +203,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
                               borderRadius: BorderRadius.circular(12),
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(12),
-                                onTap: _isUploading
-                                    ? null
-                                    : () => _uploadPhoto(context),
+                                onTap: _isUploading ? null : _uploadPhoto,
                                 child: Padding(
                                   padding: const EdgeInsets.all(8),
                                   child: Icon(
@@ -392,7 +390,7 @@ class _CachedNetworkImage extends StatelessWidget {
         return Image.network(
           url,
           fit: fit,
-          errorBuilder: (_, __, ___) => errorWidget ?? const SizedBox.shrink(),
+          errorBuilder: (_, _, _) => errorWidget ?? const SizedBox.shrink(),
         );
       },
     );
