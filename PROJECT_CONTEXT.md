@@ -420,3 +420,22 @@ Notas:
   - `flutter build apk --release` generado correctamente.
 - APK actual:
   - `build/app/outputs/flutter-apk/app-release.apk` (~64.4 MB).
+
+### 2026-02-13 (ajustes visuales finales en fichas de productos)
+- Se rediseña la ficha de productos en modo grilla para operacion compacta:
+  - 3 fichas por linea,
+  - foto en la parte superior,
+  - bloque inferior de color con estilo tipo catalogo rapido.
+- Contenido final del bloque inferior:
+  - nombre del producto (hasta 2 lineas, con ellipsis para evitar overflow),
+  - precio a la izquierda,
+  - cantidad de stock a la derecha (sin la palabra "Stock").
+- Se alinea el color del bloque inferior al color primario del tema (`palette.primary`) para coincidir con el chip/boton `Todas`.
+- Ajustes de tipografia aplicados:
+  - nombre reducido 1 punto respecto a `bodyMedium`,
+  - precio y cantidad ajustados a tamano menor controlado (`bodySmall - 1`) para mejorar densidad visual.
+- Limpieza tecnica:
+  - `flutter analyze lib/views/products_view.dart` en verde tras cada ajuste.
+- Build de distribucion actualizado:
+  - `flutter build apk --release` generado correctamente.
+  - APK en `build/app/outputs/flutter-apk/app-release.apk` (~64.4 MB).

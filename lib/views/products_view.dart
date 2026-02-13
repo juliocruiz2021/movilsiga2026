@@ -386,7 +386,7 @@ class _ProductGridState extends State<_ProductGrid> {
           );
         }
 
-        final crossAxisCount = widget.isWide ? 4 : 2;
+        const crossAxisCount = 3;
         final itemCount = vm.products.length + (vm.isLoadingMore ? 1 : 0);
 
         return GridView.builder(
@@ -396,7 +396,7 @@ class _ProductGridState extends State<_ProductGrid> {
             crossAxisCount: crossAxisCount,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            childAspectRatio: 0.87,
+            childAspectRatio: 0.72,
           ),
           itemCount: itemCount,
           itemBuilder: (context, index) {
@@ -422,6 +422,10 @@ class _ProductCard extends StatelessWidget {
     final theme = Theme.of(context);
     final palette = context.palette;
     final color = Color(product.colorHex);
+    final footerColor = palette.primary;
+    final priceStockSize = ((theme.textTheme.bodySmall?.fontSize ?? 12) - 1)
+        .clamp(8.0, 18.0)
+        .toDouble();
 
     return Consumer<ProductsViewModel>(
       builder: (context, vm, _) {
@@ -433,97 +437,105 @@ class _ProductCard extends StatelessWidget {
               ),
             );
           },
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(14),
           child: Container(
-            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: palette.surface,
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(14),
               boxShadow: [
                 BoxShadow(
                   color: palette.shadow.withValues(alpha: 0.05),
-                  blurRadius: 16,
-                  offset: const Offset(0, 8),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.25),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Center(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Container(
+                      width: double.infinity,
+                      color: color.withValues(alpha: 0.18),
                       child:
                           product.fotoThumbUrl != null &&
                               product.fotoThumbUrl!.isNotEmpty
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(14),
-                              child: _CachedNetworkImage(
-                                url: vm.resolveImageUrl(product.fotoThumbUrl),
-                                fit: BoxFit.cover,
-                                width: double.infinity,
-                                height: double.infinity,
-                                errorWidget: _NoImage(color: color),
-                              ),
+                          ? _CachedNetworkImage(
+                              url: vm.resolveImageUrl(product.fotoThumbUrl),
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              height: double.infinity,
+                              errorWidget: _NoImage(color: color),
                             )
                           : _NoImage(color: color),
                     ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        product.nombre,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: palette.textStrong,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      mainAxisSize: MainAxisSize.min,
+                  Container(
+                    width: double.infinity,
+                    color: footerColor,
+                    padding: const EdgeInsets.fromLTRB(10, 6, 10, 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '\$${product.precio.toStringAsFixed(2)}',
-                          maxLines: 1,
+                          product.nombre,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: palette.textMuted,
-                            fontWeight: FontWeight.w600,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontSize:
+                                ((theme.textTheme.bodyMedium?.fontSize ?? 14) -
+                                        1)
+                                    .clamp(10.0, 22.0)
+                                    .toDouble(),
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
                           ),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Stock ${product.stock.toStringAsFixed(0)}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: palette.textMuted,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '\$${product.precio.toStringAsFixed(2)}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontSize: priceStockSize,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                product.stock.toStringAsFixed(0),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.right,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontSize: priceStockSize,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
           ),
         );
       },
     );
   }
+
 }
 
 class _ProductListTile extends StatelessWidget {
@@ -587,7 +599,7 @@ class _ProductListTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Stock ${product.stock.toStringAsFixed(0)}',
+                  product.stock.toStringAsFixed(0),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -611,24 +623,12 @@ class _NoImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.palette;
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(
-          Icons.image_not_supported_outlined,
-          size: 36,
-          color: color.withValues(alpha: 0.85),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'Sin imagen',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: palette.textMuted,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
+    return Center(
+      child: Icon(
+        Icons.image_not_supported_outlined,
+        size: 32,
+        color: color.withValues(alpha: 0.8),
+      ),
     );
   }
 }
