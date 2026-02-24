@@ -579,3 +579,17 @@ Notas:
   - ajuste visual 1:1 contra imagen de referencia del usuario (sin cambiar logica ya implementada).
 - Nota operativa:
   - existen cambios locales del usuario en modulo clientes que no se tocan en este corte.
+
+### 2026-02-24 (pedido: ajuste visual adicional para aproximar mock)
+- Se realiza refinamiento visual de la pantalla principal de `Pedido` para acercarla al ejemplo compartido:
+  - selector superior de cliente con estilo mas destacado (tipo boton rapido) y etiqueta compacta,
+  - se elimina el bloque intermedio de detalle acumulado para dejar una vista mas limpia centrada en productos,
+  - en cada producto se muestra contador visible `Pedido` con cantidad actual.
+- Se agrega animacion visual real al agregar producto:
+  - al tocar/agregar, se lanza un indicador flotante que viaja desde la fila del producto hacia el widget inferior de total,
+  - se mantiene el pulso del resumen inferior para reforzar feedback.
+- Se conserva flujo acordado:
+  - principal (cliente + productos) -> encabezado -> confirmacion -> guardar.
+- Validacion:
+  - `flutter analyze` en verde,
+  - `flutter test` en verde.

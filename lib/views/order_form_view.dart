@@ -29,6 +29,8 @@ class OrderFormView extends StatefulWidget {
 class _OrderFormViewState extends State<OrderFormView> {
   late final OrderEditorViewModel _vm;
   late final ScrollController _scrollController;
+  final GlobalKey _summaryBarKey = GlobalKey();
+  final Map<int, GlobalKey> _productRowKeys = {};
 
   final TextEditingController _productSearchController =
       TextEditingController();
@@ -112,10 +114,6 @@ class _OrderFormViewState extends State<OrderFormView> {
                     _buildClientSelector(context),
                     const SizedBox(height: 12),
                     _buildProductsCard(context),
-                    if (_vm.lineas.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      _buildCurrentLinesCard(context),
-                    ],
                     if (_vm.saveErrorMessage != null) ...[
                       const SizedBox(height: 12),
                       _buildSaveError(context, _vm.saveErrorMessage!),
@@ -135,14 +133,14 @@ class _OrderFormViewState extends State<OrderFormView> {
     final palette = context.palette;
     final selected = _vm.selectedClient;
     final label = selected == null
-        ? 'Agregar cliente'
+        ? 'Seleccionar cliente'
         : (selected.nombre.trim().isEmpty ? selected.label : selected.nombre);
 
     return InkWell(
       onTap: _openClientPicker,
       borderRadius: BorderRadius.circular(14),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: palette.surface,
           borderRadius: BorderRadius.circular(14),
@@ -156,23 +154,61 @@ class _OrderFormViewState extends State<OrderFormView> {
         ),
         child: Row(
           children: [
-            Icon(Icons.person_outline, color: palette.primary),
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: palette.primary.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(Icons.person_add_alt_1, color: palette.primary),
+            ),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: palette.textStrong,
-                  fontWeight: FontWeight.w700,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Cliente',
+                    style: TextStyle(
+                      color: palette.textMuted,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                    ),
+                  ),
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: palette.textStrong,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
               ),
             ),
+            const SizedBox(width: 8),
+            if (_vm.noPidio)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                decoration: BoxDecoration(
+                  color: palette.dangerContainer,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  'No pidió',
+                  style: TextStyle(
+                    color: palette.danger,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
             if (selected != null &&
                 selected.telefonoPrincipal.trim().isNotEmpty)
               Padding(
-                padding: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.only(left: 8),
                 child: Text(
                   selected.telefonoPrincipal,
                   style: TextStyle(
@@ -263,76 +299,6 @@ class _OrderFormViewState extends State<OrderFormView> {
     );
   }
 
-  Widget _buildCurrentLinesCard(BuildContext context) {
-    final palette = context.palette;
-    final lines = _vm.lineas.values.toList()
-      ..sort(
-        (a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase()),
-      );
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: _cardDecoration(palette),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionTitle(title: 'Detalle actual', icon: Icons.list_alt_outlined),
-          const SizedBox(height: 8),
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: lines.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 8),
-            itemBuilder: (context, index) {
-              final line = lines[index];
-              return Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: palette.surfaceSoft,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            line.nombre,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: palette.textStrong,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          Text(
-                            '${line.cantidad.toStringAsFixed(0)} x \$${line.precioUnitario.toStringAsFixed(2)}',
-                            style: TextStyle(color: palette.textMuted),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Text(
-                      '\$${line.subtotal.toStringAsFixed(2)}',
-                      style: TextStyle(
-                        color: palette.primary,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildSaveError(BuildContext context, String message) {
     final palette = context.palette;
     return Container(
@@ -368,11 +334,13 @@ class _OrderFormViewState extends State<OrderFormView> {
     final palette = context.palette;
     final quantity = _vm.quantityByProduct(product.id);
     final highlighted = _recentProductId == product.id;
+    final rowKey = _productRowKeys.putIfAbsent(product.id, () => GlobalKey());
 
     return InkWell(
       onTap: () => _addProduct(product),
       borderRadius: BorderRadius.circular(12),
       child: AnimatedContainer(
+        key: rowKey,
         duration: const Duration(milliseconds: 220),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         decoration: BoxDecoration(
@@ -411,20 +379,45 @@ class _OrderFormViewState extends State<OrderFormView> {
                   : () => _vm.removeProduct(product.id),
               icon: const Icon(Icons.remove_circle_outline),
             ),
-            SizedBox(
-              width: 34,
-              child: Text(
-                quantity.toString(),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: palette.textStrong,
-                  fontWeight: FontWeight.w700,
-                ),
+            Container(
+              width: 66,
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+              decoration: BoxDecoration(
+                color: quantity > 0
+                    ? palette.primary.withValues(alpha: 0.12)
+                    : palette.surface,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    'Pedido',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: palette.textMuted,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 10,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    quantity.toString(),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: quantity > 0
+                          ? palette.primary
+                          : palette.textStrong,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
               ),
             ),
             IconButton(
               onPressed: () => _addProduct(product),
-              icon: const Icon(Icons.add_circle_outline),
+              icon: Icon(Icons.add_circle_outline, color: palette.primary),
             ),
           ],
         ),
@@ -446,6 +439,7 @@ class _OrderFormViewState extends State<OrderFormView> {
             borderRadius: BorderRadius.circular(16),
             onTap: _vm.isSaving ? null : _openHeaderAndContinue,
             child: Container(
+              key: _summaryBarKey,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
                 color: palette.primary,
@@ -728,6 +722,7 @@ class _OrderFormViewState extends State<OrderFormView> {
 
   void _addProduct(Product product) {
     _vm.addProduct(product);
+    unawaited(_animateProductToSummary(product.id));
     setState(() {
       _recentProductId = product.id;
       _summaryPulse = true;
@@ -746,6 +741,62 @@ class _OrderFormViewState extends State<OrderFormView> {
       if (!mounted) return;
       setState(() => _summaryPulse = false);
     });
+  }
+
+  Future<void> _animateProductToSummary(int productId) async {
+    final sourceContext = _productRowKeys[productId]?.currentContext;
+    final targetContext = _summaryBarKey.currentContext;
+    if (sourceContext == null || targetContext == null || !mounted) return;
+
+    final sourceBox = sourceContext.findRenderObject() as RenderBox?;
+    final targetBox = targetContext.findRenderObject() as RenderBox?;
+    if (sourceBox == null || targetBox == null) return;
+
+    final overlay = Overlay.of(context);
+    final start = sourceBox.localToGlobal(sourceBox.size.center(Offset.zero));
+    final end = targetBox.localToGlobal(targetBox.size.center(Offset.zero));
+
+    final controller = AnimationController(
+      vsync: Navigator.of(context),
+      duration: const Duration(milliseconds: 420),
+    );
+    final curved = CurvedAnimation(
+      parent: controller,
+      curve: Curves.easeInOutCubic,
+    );
+    final move = Tween<Offset>(begin: start, end: end).animate(curved);
+    final scale = Tween<double>(begin: 1, end: 0.25).animate(curved);
+    final fade = Tween<double>(begin: 0.95, end: 0.2).animate(curved);
+
+    late final OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (_) {
+        return AnimatedBuilder(
+          animation: controller,
+          builder: (_, child) {
+            final pos = move.value;
+            return Positioned(
+              left: pos.dx - 14,
+              top: pos.dy - 14,
+              child: IgnorePointer(
+                child: Transform.scale(
+                  scale: scale.value,
+                  child: Opacity(
+                    opacity: fade.value,
+                    child: _FlyingDot(color: context.palette.primary),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    overlay.insert(entry);
+    await controller.forward();
+    entry.remove();
+    controller.dispose();
   }
 
   void _handleProductScroll() {
@@ -805,6 +856,32 @@ class _InfoText extends StatelessWidget {
         fontSize: 12,
         fontWeight: FontWeight.w600,
       ),
+    );
+  }
+}
+
+class _FlyingDot extends StatelessWidget {
+  const _FlyingDot({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 28,
+      height: 28,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(999),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: const Icon(Icons.add, color: Colors.white, size: 18),
     );
   }
 }
