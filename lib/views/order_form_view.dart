@@ -8,6 +8,7 @@ import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/order_editor_viewmodel.dart';
 import '../viewmodels/settings_viewmodel.dart';
 import 'order_confirmation_view.dart';
+import 'order_header_view.dart';
 
 class OrderFormView extends StatefulWidget {
   const OrderFormView({
@@ -29,14 +30,9 @@ class _OrderFormViewState extends State<OrderFormView> {
   late final OrderEditorViewModel _vm;
   late final ScrollController _scrollController;
 
-  final TextEditingController _clientSearchController = TextEditingController();
   final TextEditingController _productSearchController =
       TextEditingController();
-  final TextEditingController _gpsController = TextEditingController();
-  final TextEditingController _notaController = TextEditingController();
-  final TextEditingController _numeroManualController = TextEditingController();
 
-  Timer? _clientSearchDebounce;
   Timer? _productSearchDebounce;
 
   bool _summaryPulse = false;
@@ -53,16 +49,11 @@ class _OrderFormViewState extends State<OrderFormView> {
 
   @override
   void dispose() {
-    _clientSearchDebounce?.cancel();
     _productSearchDebounce?.cancel();
     _scrollController
       ..removeListener(_handleProductScroll)
       ..dispose();
-    _clientSearchController.dispose();
     _productSearchController.dispose();
-    _gpsController.dispose();
-    _notaController.dispose();
-    _numeroManualController.dispose();
     _vm.dispose();
     super.dispose();
   }
@@ -73,19 +64,8 @@ class _OrderFormViewState extends State<OrderFormView> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditing ? 'Editar pedido' : 'Nuevo pedido'),
+        title: Text(isEditing ? 'Pedido (editar)' : 'Pedido'),
         actions: [
-          IconButton(
-            onPressed: _vm.isResolvingGps ? null : _captureGps,
-            tooltip: 'Capturar GPS',
-            icon: _vm.isResolvingGps
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.my_location_outlined),
-          ),
           IconButton(
             onPressed: _vm.isLoadingInitial ? null : _vm.refreshAll,
             tooltip: 'Refrescar',
@@ -129,9 +109,7 @@ class _OrderFormViewState extends State<OrderFormView> {
                   controller: _scrollController,
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
                   children: [
-                    _buildClientCard(context),
-                    const SizedBox(height: 12),
-                    _buildHeaderCard(context),
+                    _buildClientSelector(context),
                     const SizedBox(height: 12),
                     _buildProductsCard(context),
                     if (_vm.lineas.isNotEmpty) ...[
@@ -153,307 +131,59 @@ class _OrderFormViewState extends State<OrderFormView> {
     );
   }
 
-  Widget _buildClientCard(BuildContext context) {
+  Widget _buildClientSelector(BuildContext context) {
     final palette = context.palette;
     final selected = _vm.selectedClient;
+    final label = selected == null
+        ? 'Agregar cliente'
+        : (selected.nombre.trim().isEmpty ? selected.label : selected.nombre);
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: _cardDecoration(palette),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionTitle(title: 'Cliente', icon: Icons.person_outline),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _clientSearchController,
-                  onChanged: (value) {
-                    _clientSearchDebounce?.cancel();
-                    _clientSearchDebounce = Timer(
-                      const Duration(milliseconds: 320),
-                      () => _vm.searchClients(value),
-                    );
-                  },
-                  decoration: InputDecoration(
-                    hintText: 'Buscar por codigo, nombre o telefono',
-                    prefixIcon: const Icon(Icons.search),
-                    suffixIcon: _vm.isLoadingClients
-                        ? const Padding(
-                            padding: EdgeInsets.all(12),
-                            child: SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          )
-                        : (_clientSearchController.text.trim().isEmpty
-                              ? null
-                              : IconButton(
-                                  onPressed: () {
-                                    _clientSearchController.clear();
-                                    _vm.searchClients('');
-                                  },
-                                  icon: const Icon(Icons.close),
-                                )),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                onPressed: selected == null
-                    ? null
-                    : () {
-                        _vm.clearSelectedClient();
-                        _clientSearchController.clear();
-                      },
-                icon: const Icon(Icons.person_remove_outlined),
-                tooltip: 'Quitar cliente',
-              ),
-            ],
-          ),
-          if (_vm.clientResults.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Container(
-              constraints: const BoxConstraints(maxHeight: 180),
-              decoration: BoxDecoration(
-                color: palette.surfaceSoft,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: _vm.clientResults.length,
-                itemBuilder: (context, index) {
-                  final client = _vm.clientResults[index];
-                  return ListTile(
-                    dense: true,
-                    title: Text(client.label),
-                    subtitle: Text(
-                      client.telefonoPrincipal.trim().isEmpty
-                          ? (client.nombreComercial ?? '')
-                          : client.telefonoPrincipal,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    onTap: () {
-                      _vm.selectClient(client);
-                      _clientSearchController.text = client.label;
-                    },
-                  );
-                },
-              ),
+    return InkWell(
+      onTap: _openClientPicker,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: palette.surface,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: palette.shadow.withValues(alpha: 0.05),
+              blurRadius: 14,
+              offset: const Offset(0, 7),
             ),
           ],
-          if (selected != null) ...[
-            const SizedBox(height: 8),
-            _InfoText(
-              text:
-                  'Seleccionado: ${selected.label}${selected.telefonoPrincipal.trim().isEmpty ? '' : ' • ${selected.telefonoPrincipal}'}',
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeaderCard(BuildContext context) {
-    final palette = context.palette;
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: _cardDecoration(palette),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionTitle(title: 'Encabezado', icon: Icons.receipt_long_outlined),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _pickDate(context),
-                  icon: const Icon(Icons.calendar_today_outlined, size: 18),
-                  label: Text('Fecha: ${_formatDate(_vm.fecha)}'),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.person_outline, color: palette.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: palette.textStrong,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          _buildDropdown<int>(
-            label: 'Sucursal',
-            value: _safeSelected(_vm.selectedSucursalId, _vm.sucursales),
-            items: _vm.sucursales,
-            onChanged: (value) {
-              if (value == null) return;
-              _vm.setSucursal(value);
-            },
-          ),
-          const SizedBox(height: 10),
-          _buildDropdown<int>(
-            label: 'Punto de venta',
-            value: _safeSelected(_vm.selectedPuntoVentaId, _vm.puntosVenta),
-            items: _vm.puntosVenta,
-            onChanged: (value) {
-              if (value == null) return;
-              _vm.setPuntoVenta(value);
-            },
-          ),
-          const SizedBox(height: 10),
-          _buildDropdown<int>(
-            label: 'Bodega',
-            value: _safeSelected(_vm.selectedBodegaId, _vm.bodegas),
-            items: _vm.bodegas,
-            onChanged: _vm.noPidio
-                ? null
-                : (value) {
-                    if (value == null) return;
-                    _vm.setBodega(value);
-                  },
-          ),
-          const SizedBox(height: 10),
-          _buildDropdown<int>(
-            label: 'Vendedor',
-            value: _safeSelected(_vm.selectedVendedorId, _vm.vendedores),
-            items: _vm.vendedores,
-            onChanged: (value) {
-              if (value == null) return;
-              _vm.setVendedor(value);
-            },
-          ),
-          const SizedBox(height: 10),
-          _buildDropdown<int>(
-            label: 'Centro de costo',
-            value: _safeSelected(_vm.selectedCentroCostoId, _vm.centrosCosto),
-            items: _vm.centrosCosto,
-            onChanged: (value) {
-              if (value == null) return;
-              _vm.setCentroCosto(value);
-            },
-          ),
-          const SizedBox(height: 10),
-          _buildDropdown<int>(
-            label: 'Tipo documento',
-            value: _safeSelected(
-              _vm.selectedTipoDocumentoId,
-              _vm.tiposDocumento,
             ),
-            items: _vm.tiposDocumento,
-            onChanged: (value) {
-              if (value == null) return;
-              _vm.setTipoDocumento(value);
-            },
-          ),
-          const SizedBox(height: 10),
-          _buildDropdown<int>(
-            label: 'Serie',
-            value: _safeSelected(_vm.selectedSerieId, _vm.series),
-            items: _vm.series,
-            onChanged: (value) {
-              if (value == null) return;
-              _vm.setSerie(value);
-            },
-          ),
-          if (!_vm.serieAutomatica) ...[
-            const SizedBox(height: 10),
-            TextField(
-              controller: _numeroManualController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Numero manual',
-                border: OutlineInputBorder(),
-              ),
-              onChanged: _vm.setNumeroManual,
-            ),
-          ],
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _gpsController,
-                  decoration: const InputDecoration(
-                    labelText: 'GPS ubicacion',
-                    hintText: 'lat,lng',
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: _vm.setGpsUbicacion,
-                ),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                onPressed: _vm.isResolvingGps ? null : _captureGps,
-                tooltip: 'Tomar GPS',
-                icon: _vm.isResolvingGps
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.my_location_outlined),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
+            if (selected != null &&
+                selected.telefonoPrincipal.trim().isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
                 child: Text(
-                  'No va pedir',
+                  selected.telefonoPrincipal,
                   style: TextStyle(
-                    color: palette.textStrong,
-                    fontWeight: FontWeight.w700,
+                    color: palette.textMuted,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-              Switch(
-                value: _vm.noPidio,
-                onChanged: (value) async {
-                  _vm.setNoPidio(value);
-                  if (value && _vm.gpsUbicacion.trim().isEmpty) {
-                    await _captureGps();
-                  }
-                },
-              ),
-            ],
-          ),
-          if (_vm.noPidio) ...[
-            _buildDropdown<int>(
-              label: 'Motivo no pidio',
-              value: _safeSelected(
-                _vm.selectedMotivoNoPedidoId,
-                _vm.motivosNoPedido,
-              ),
-              items: _vm.motivosNoPedido,
-              onChanged: (value) {
-                if (value == null) return;
-                _vm.setMotivoNoPedido(value);
-              },
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: _vm.isLoadingReasons ? null : _openCreateReasonDialog,
-              icon: const Icon(Icons.add_circle_outline),
-              label: const Text('Agregar motivo nuevo'),
-            ),
-            const SizedBox(height: 4),
-            _InfoText(
-              text: 'En no pidio, se guarda un pedido vacio con GPS y motivo.',
-            ),
+            Icon(Icons.expand_more, color: palette.textMuted),
           ],
-          const SizedBox(height: 10),
-          TextField(
-            controller: _notaController,
-            minLines: 2,
-            maxLines: 4,
-            decoration: const InputDecoration(
-              labelText: 'Nota / observaciones',
-              border: OutlineInputBorder(),
-            ),
-            onChanged: _vm.setObservaciones,
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -472,7 +202,7 @@ class _OrderFormViewState extends State<OrderFormView> {
           if (_vm.noPidio)
             const _InfoText(
               text:
-                  'Producto deshabilitado porque el pedido se marcó como no pidió.',
+                  'Este pedido esta marcado como No pidio desde encabezado. Si quieres agregar productos, desactiva No pidio en encabezado.',
             )
           else ...[
             TextField(
@@ -714,7 +444,7 @@ class _OrderFormViewState extends State<OrderFormView> {
           duration: const Duration(milliseconds: 180),
           child: InkWell(
             borderRadius: BorderRadius.circular(16),
-            onTap: _vm.isSaving ? null : _openConfirmationAndSave,
+            onTap: _vm.isSaving ? null : _openHeaderAndContinue,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
@@ -757,9 +487,7 @@ class _OrderFormViewState extends State<OrderFormView> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                _vm.noPidio
-                                    ? 'Registrar no pidió'
-                                    : 'Confirmar pedido',
+                                'Total del pedido',
                                 style: TextStyle(
                                   color: palette.onPrimary,
                                   fontWeight: FontWeight.w800,
@@ -792,6 +520,168 @@ class _OrderFormViewState extends State<OrderFormView> {
         ),
       ),
     );
+  }
+
+  Future<void> _openClientPicker() async {
+    final searchController = TextEditingController();
+    Timer? debounce;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        final height = MediaQuery.sizeOf(sheetContext).height * 0.82;
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+          ),
+          child: SafeArea(
+            top: false,
+            child: SizedBox(
+              height: height,
+              child: Column(
+                children: [
+                  const SizedBox(height: 8),
+                  Container(
+                    width: 42,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.black26,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: [
+                        Icon(Icons.people_outline),
+                        SizedBox(width: 8),
+                        Text(
+                          'Seleccionar cliente',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: TextField(
+                      controller: searchController,
+                      autofocus: true,
+                      onChanged: (value) {
+                        debounce?.cancel();
+                        debounce = Timer(
+                          const Duration(milliseconds: 280),
+                          () => _vm.searchClients(value),
+                        );
+                      },
+                      decoration: InputDecoration(
+                        hintText: 'Filtrar por codigo, nombre o telefono',
+                        prefixIcon: const Icon(Icons.search),
+                        suffixIcon: searchController.text.trim().isEmpty
+                            ? null
+                            : IconButton(
+                                onPressed: () {
+                                  searchController.clear();
+                                  _vm.searchClients('');
+                                },
+                                icon: const Icon(Icons.close),
+                              ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: AnimatedBuilder(
+                      animation: _vm,
+                      builder: (context, _) {
+                        if (_vm.isLoadingClients) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
+
+                        if (_vm.clientResults.isEmpty) {
+                          if (searchController.text.trim().isEmpty) {
+                            return const Center(
+                              child: Text('Escribe para buscar clientes.'),
+                            );
+                          }
+                          return const Center(
+                            child: Text('No se encontraron clientes.'),
+                          );
+                        }
+
+                        return ListView.separated(
+                          itemCount: _vm.clientResults.length,
+                          separatorBuilder: (_, _) => const Divider(height: 1),
+                          itemBuilder: (context, index) {
+                            final client = _vm.clientResults[index];
+                            final selected =
+                                _vm.selectedClient?.id == client.id;
+                            return ListTile(
+                              title: Text(client.label),
+                              subtitle: Text(
+                                client.telefonoPrincipal.trim().isEmpty
+                                    ? (client.nombreComercial ?? '')
+                                    : client.telefonoPrincipal,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              trailing: selected
+                                  ? const Icon(Icons.check_circle_outline)
+                                  : null,
+                              onTap: () {
+                                _vm.selectClient(client);
+                                Navigator.of(sheetContext).pop();
+                              },
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    debounce?.cancel();
+    searchController.dispose();
+    await _vm.searchClients('');
+  }
+
+  Future<void> _openHeaderAndContinue() async {
+    final messenger = ScaffoldMessenger.of(context);
+
+    if (_vm.selectedClient == null) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Selecciona un cliente para continuar.')),
+      );
+      return;
+    }
+
+    if (!_vm.noPidio && _vm.lineas.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Agrega productos al pedido.')),
+      );
+      return;
+    }
+
+    final continueFlow = await Navigator.of(
+      context,
+    ).push<bool>(MaterialPageRoute(builder: (_) => OrderHeaderView(vm: _vm)));
+    if (!mounted || continueFlow != true) return;
+
+    await _openConfirmationAndSave();
   }
 
   Future<void> _openConfirmationAndSave() async {
@@ -836,99 +726,6 @@ class _OrderFormViewState extends State<OrderFormView> {
     messenger.showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Future<void> _pickDate(BuildContext context) async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _vm.fecha,
-      firstDate: DateTime(now.year - 2, 1, 1),
-      lastDate: DateTime(now.year + 2, 12, 31),
-    );
-    if (picked == null) return;
-    _vm.setFecha(picked);
-  }
-
-  Future<void> _openCreateReasonDialog() async {
-    final nameController = TextEditingController();
-    final codeController = TextEditingController();
-    final messenger = ScaffoldMessenger.of(context);
-
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Nuevo motivo de no pedido'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Nombre del motivo',
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: codeController,
-                decoration: const InputDecoration(
-                  labelText: 'Codigo (opcional)',
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Crear'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (!mounted || result != true) {
-      nameController.dispose();
-      codeController.dispose();
-      return;
-    }
-
-    final created = await _vm.createMotivoNoPedido(
-      nombre: nameController.text,
-      codigo: codeController.text,
-    );
-
-    nameController.dispose();
-    codeController.dispose();
-
-    if (!mounted) return;
-
-    if (created != null) {
-      messenger.showSnackBar(
-        SnackBar(content: Text('Motivo "${created.nombre}" creado.')),
-      );
-      return;
-    }
-
-    final message = _vm.saveErrorMessage ?? 'No se pudo crear el motivo.';
-    messenger.showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  Future<void> _captureGps() async {
-    final ok = await _vm.captureGpsFromDevice();
-    if (!mounted) return;
-    if (!ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No se pudo obtener el GPS del dispositivo.'),
-        ),
-      );
-    }
-  }
-
   void _addProduct(Product product) {
     _vm.addProduct(product);
     setState(() {
@@ -959,69 +756,12 @@ class _OrderFormViewState extends State<OrderFormView> {
   }
 
   void _syncControllers() {
-    final gps = _vm.gpsUbicacion;
-    if (_gpsController.text != gps) {
-      _gpsController.text = gps;
-      _gpsController.selection = TextSelection.fromPosition(
-        TextPosition(offset: _gpsController.text.length),
-      );
-    }
-
-    final note = _vm.observaciones;
-    if (_notaController.text != note) {
-      _notaController.text = note;
-      _notaController.selection = TextSelection.fromPosition(
-        TextPosition(offset: _notaController.text.length),
-      );
-    }
-
-    final manual = _vm.numeroManual?.toString() ?? '';
-    if (_numeroManualController.text != manual) {
-      _numeroManualController.text = manual;
-      _numeroManualController.selection = TextSelection.fromPosition(
-        TextPosition(offset: _numeroManualController.text.length),
-      );
-    }
-
     if (_productSearchController.text != _vm.productSearch) {
       _productSearchController.text = _vm.productSearch;
       _productSearchController.selection = TextSelection.fromPosition(
         TextPosition(offset: _productSearchController.text.length),
       );
     }
-  }
-
-  int? _safeSelected<T extends OrderLookupOption>(
-    int? selected,
-    List<T> items,
-  ) {
-    if (selected == null) return null;
-    return items.any((item) => item.id == selected) ? selected : null;
-  }
-
-  Widget _buildDropdown<T extends int>({
-    required String label,
-    required int? value,
-    required List<OrderLookupOption> items,
-    required ValueChanged<int?>? onChanged,
-  }) {
-    return DropdownButtonFormField<int>(
-      initialValue: value,
-      isExpanded: true,
-      decoration: InputDecoration(
-        labelText: label,
-        border: const OutlineInputBorder(),
-      ),
-      items: items
-          .map(
-            (item) => DropdownMenuItem<int>(
-              value: item.id,
-              child: Text(item.label, overflow: TextOverflow.ellipsis),
-            ),
-          )
-          .toList(),
-      onChanged: onChanged,
-    );
   }
 }
 
@@ -1081,11 +821,4 @@ BoxDecoration _cardDecoration(AppPalette palette) {
       ),
     ],
   );
-}
-
-String _formatDate(DateTime value) {
-  final day = value.day.toString().padLeft(2, '0');
-  final month = value.month.toString().padLeft(2, '0');
-  final year = value.year.toString().padLeft(4, '0');
-  return '$day/$month/$year';
 }

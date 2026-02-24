@@ -548,3 +548,23 @@ Notas:
 - Validacion tecnica:
   - `flutter analyze` en verde (sin issues),
   - `flutter test` en verde.
+
+### 2026-02-24 (ajuste UX pedido segun ejemplo: cliente arriba + encabezado en segundo paso)
+- Se corrige el flujo visual de `Pedido` para alinearlo al mock solicitado:
+  - en la ventana principal ya **no** se muestra el bloque de encabezado,
+  - arriba queda un boton/selector de cliente (estilo rapido) para abrir una ventana y filtrar/seleccionar cliente,
+  - la pantalla principal queda enfocada a productos + cantidades + total.
+- Selector de cliente actualizado:
+  - tap en el boton superior abre `bottom sheet` de seleccion,
+  - permite filtrar por codigo/nombre/telefono y elegir cliente.
+- Flujo de navegacion final implementado:
+  - Pantalla 1: productos + total,
+  - tap en widget inferior de total => abre `OrderHeaderView` (encabezado),
+  - desde encabezado => continuar a `OrderConfirmationView`,
+  - desde confirmacion => guardar pedido.
+- `OrderHeaderView` nuevo:
+  - concentra todos los campos de encabezado (fecha, sucursal, punto de venta, bodega, vendedor, centro costo, tipo doc, serie, GPS, nota, `no pidio`, motivo),
+  - mantiene validaciones operativas antes de continuar.
+- Validacion tecnica despues del ajuste:
+  - `flutter analyze` en verde,
+  - `flutter test` en verde.
