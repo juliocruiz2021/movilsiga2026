@@ -285,6 +285,8 @@ class OrdersViewModel extends ChangeNotifier {
       order.socioCelular ?? '',
       order.documentNumber,
       order.estado,
+      order.noPidio ? 'no pidio' : 'si pidio',
+      order.motivoNoPedidoNombre ?? '',
       order.total.toStringAsFixed(2),
     ];
     return candidates.any((value) => value.toLowerCase().contains(term));

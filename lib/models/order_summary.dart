@@ -4,6 +4,7 @@ class OrderSummary {
     required this.estado,
     required this.tipoRegistro,
     required this.tipoOperacion,
+    required this.noPidio,
     required this.total,
     required this.subtotal,
     required this.descuento,
@@ -17,6 +18,7 @@ class OrderSummary {
     this.socioNombreComercial,
     this.socioTelefono,
     this.socioCelular,
+    this.motivoNoPedidoNombre,
   });
 
   final int id;
@@ -24,6 +26,7 @@ class OrderSummary {
   final String estado;
   final String tipoRegistro;
   final String tipoOperacion;
+  final bool noPidio;
   final String? serie;
   final int? numero;
   final double total;
@@ -36,6 +39,7 @@ class OrderSummary {
   final String? socioNombreComercial;
   final String? socioTelefono;
   final String? socioCelular;
+  final String? motivoNoPedidoNombre;
 
   String get documentNumber {
     final serieText = (serie ?? '').trim();
@@ -56,6 +60,7 @@ class OrderSummary {
 
   factory OrderSummary.fromJson(Map<String, dynamic> json) {
     final socio = _asMap(json['socio']);
+    final motivoNoPedido = _asMap(json['motivo_no_pedido']);
 
     return OrderSummary(
       id: _toInt(json['id']) ?? 0,
@@ -63,6 +68,7 @@ class OrderSummary {
       estado: _toText(json['estado']) ?? '',
       tipoRegistro: _toText(json['tipo_registro']) ?? '',
       tipoOperacion: _toText(json['tipo_operacion']) ?? '',
+      noPidio: _toBool(json['no_pidio']) ?? false,
       serie: _toText(json['serie']),
       numero: _toInt(json['numero']),
       total: _toDouble(json['total']),
@@ -75,6 +81,9 @@ class OrderSummary {
       socioNombreComercial: _toText(socio?['nombre_comercial']),
       socioTelefono: _toText(socio?['telefono']),
       socioCelular: _toText(socio?['celular']),
+      motivoNoPedidoNombre:
+          _toText(motivoNoPedido?['nombre']) ??
+          _toText(motivoNoPedido?['descripcion']),
     );
   }
 
@@ -96,6 +105,17 @@ class OrderSummary {
     if (value is int) return value;
     if (value is num) return value.toInt();
     return int.tryParse(value?.toString() ?? '');
+  }
+
+  static bool? _toBool(dynamic value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      if (normalized == '1' || normalized == 'true') return true;
+      if (normalized == '0' || normalized == 'false') return false;
+    }
+    return null;
   }
 
   static double _toDouble(dynamic value) {

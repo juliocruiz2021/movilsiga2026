@@ -5,6 +5,8 @@ import '../models/order_summary.dart';
 import '../theme/app_theme.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/orders_viewmodel.dart';
+import '../viewmodels/settings_viewmodel.dart';
+import 'order_form_view.dart';
 
 class OrdersView extends StatefulWidget {
   const OrdersView({super.key});
@@ -57,6 +59,16 @@ class _OrdersViewState extends State<OrdersView> {
           auth.hasPermission('ventas.view') ||
           auth.hasPermission('pedidos.view'),
     );
+    final canCreateOrders = context.select<AuthViewModel, bool>(
+      (auth) =>
+          auth.hasPermission('ventas.create') ||
+          auth.hasPermission('pedidos.create'),
+    );
+    final canUpdateOrders = context.select<AuthViewModel, bool>(
+      (auth) =>
+          auth.hasPermission('ventas.update') ||
+          auth.hasPermission('pedidos.update'),
+    );
     final allowOfflineViewFallback =
         isOffline && authRole.isEmpty && hasSession;
     final canRenderOrders = canViewOrders || allowOfflineViewFallback;
@@ -86,7 +98,9 @@ class _OrdersViewState extends State<OrdersView> {
               dateFilterMode: vm.dateFilterMode,
               fromDate: vm.fromDate,
               toDate: vm.toDate,
+              showCreateButton: canCreateOrders,
               onSearch: vm.updateSearch,
+              onCreate: () => _openCreateOrder(context),
               onRefresh: vm.refresh,
               onModeChanged: vm.updateDateFilterMode,
               onPickExactDate: () => _pickExactDate(context, vm),
@@ -95,7 +109,9 @@ class _OrdersViewState extends State<OrdersView> {
               onSetToday: vm.setToday,
             ),
             const SizedBox(height: 10),
-            Expanded(child: _buildBody(context, vm)),
+            Expanded(
+              child: _buildBody(context, vm, canUpdateOrders: canUpdateOrders),
+            ),
             const SizedBox(height: 8),
             _OrdersCounter(count: vm.orders.length),
           ],
@@ -104,7 +120,11 @@ class _OrdersViewState extends State<OrdersView> {
     );
   }
 
-  Widget _buildBody(BuildContext context, OrdersViewModel vm) {
+  Widget _buildBody(
+    BuildContext context,
+    OrdersViewModel vm, {
+    required bool canUpdateOrders,
+  }) {
     if (vm.isLoading && vm.orders.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -145,7 +165,12 @@ class _OrdersViewState extends State<OrdersView> {
             );
           }
           final order = vm.orders[index];
-          return _OrderListRow(order: order);
+          return _OrderListRow(
+            order: order,
+            onOpenDetail: canUpdateOrders
+                ? () => _openEditOrder(context, order)
+                : null,
+          );
         },
       ),
     );
@@ -186,6 +211,35 @@ class _OrdersViewState extends State<OrdersView> {
     if (picked == null) return;
     vm.updateToDate(picked);
   }
+
+  Future<void> _openCreateOrder(BuildContext context) async {
+    final created = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => OrderFormView(
+          settings: context.read<SettingsViewModel>(),
+          auth: context.read<AuthViewModel>(),
+        ),
+      ),
+    );
+
+    if (!context.mounted || created != true) return;
+    await context.read<OrdersViewModel>().refresh();
+  }
+
+  Future<void> _openEditOrder(BuildContext context, OrderSummary order) async {
+    final edited = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => OrderFormView(
+          settings: context.read<SettingsViewModel>(),
+          auth: context.read<AuthViewModel>(),
+          orderId: order.id,
+        ),
+      ),
+    );
+
+    if (!context.mounted || edited != true) return;
+    await context.read<OrdersViewModel>().refresh();
+  }
 }
 
 class _OrdersToolbar extends StatelessWidget {
@@ -194,7 +248,9 @@ class _OrdersToolbar extends StatelessWidget {
     required this.dateFilterMode,
     required this.fromDate,
     required this.toDate,
+    required this.showCreateButton,
     required this.onSearch,
+    required this.onCreate,
     required this.onRefresh,
     required this.onModeChanged,
     required this.onPickExactDate,
@@ -207,7 +263,9 @@ class _OrdersToolbar extends StatelessWidget {
   final OrderDateFilterMode dateFilterMode;
   final DateTime fromDate;
   final DateTime toDate;
+  final bool showCreateButton;
   final ValueChanged<String> onSearch;
+  final VoidCallback onCreate;
   final Future<void> Function() onRefresh;
   final ValueChanged<OrderDateFilterMode> onModeChanged;
   final VoidCallback onPickExactDate;
@@ -258,6 +316,12 @@ class _OrdersToolbar extends StatelessWidget {
               tooltip: 'Refrescar',
               icon: const Icon(Icons.refresh),
             ),
+            if (showCreateButton)
+              IconButton(
+                onPressed: onCreate,
+                tooltip: 'Nuevo pedido',
+                icon: const Icon(Icons.add_circle_outline),
+              ),
           ],
         ),
         const SizedBox(height: 10),
@@ -338,9 +402,10 @@ class _OrdersToolbar extends StatelessWidget {
 }
 
 class _OrderListRow extends StatelessWidget {
-  const _OrderListRow({required this.order});
+  const _OrderListRow({required this.order, this.onOpenDetail});
 
   final OrderSummary order;
+  final VoidCallback? onOpenDetail;
 
   @override
   Widget build(BuildContext context) {
@@ -357,7 +422,7 @@ class _OrderListRow extends StatelessWidget {
         ? '-'
         : _formatDateForUi(order.fecha!);
 
-    return Container(
+    final rowContent = Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: palette.surface,
@@ -407,6 +472,20 @@ class _OrderListRow extends StatelessWidget {
                     color: palette.textMuted,
                   ),
                 ),
+                if (order.noPidio) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    order.motivoNoPedidoNombre?.trim().isNotEmpty == true
+                        ? 'No pidio: ${order.motivoNoPedidoNombre}'
+                        : 'No pidio',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: palette.danger,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -441,8 +520,19 @@ class _OrderListRow extends StatelessWidget {
               ),
             ],
           ),
+          if (onOpenDetail != null) ...[
+            const SizedBox(width: 6),
+            Icon(Icons.chevron_right, color: palette.textMuted),
+          ],
         ],
       ),
+    );
+
+    if (onOpenDetail == null) return rowContent;
+    return InkWell(
+      onTap: onOpenDetail,
+      borderRadius: BorderRadius.circular(14),
+      child: rowContent,
     );
   }
 }

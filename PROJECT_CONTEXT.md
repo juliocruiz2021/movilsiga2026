@@ -519,3 +519,32 @@ Notas:
 - Validacion tecnica:
   - `flutter analyze` en verde.
   - `flutter test` en verde.
+
+### 2026-02-24 (pedidos: ventana crear/editar/punteo + no pidio operativo)
+- Se implementa flujo completo de captura de pedidos desde movil:
+  - nueva pantalla `OrderFormView` para **crear/editar** pedido,
+  - nueva pantalla `OrderConfirmationView` para confirmacion antes de guardar.
+- Integracion en listado de pedidos (`OrdersView`):
+  - boton de alta (`+`) en toolbar por permiso de creacion,
+  - tap en fila para editar pedido existente por permiso de actualizacion,
+  - refresco automatico del listado al regresar de alta/edicion exitosa.
+- Nuevo `OrderEditorViewModel` con logica operativa de formulario:
+  - carga de catalogos requeridos (`sucursales`, `puntos-venta`, `bodegas`, `vendedores`, `centros-costo`, `tipos-documento`, `series`, `motivos-no-pedido`),
+  - busqueda de clientes por `codigo/nombre/telefono`,
+  - busqueda paginada de productos con `loadMore`,
+  - armado de detalle y payload `POST/PUT /api/{empresa}/ventas`.
+- Flujo `no pidio` implementado en UI:
+  - switch `No va pedir`,
+  - motivo de no pedido obligatorio,
+  - alta de motivo nuevo desde la misma ventana,
+  - captura de GPS del dispositivo (Geolocator) y validacion para no permitir guardar `no pidio` sin coordenadas.
+- UX de pedido:
+  - en cada producto se visualiza cantidad pedida,
+  - tap en producto incrementa cantidad y dispara animacion visual en fila + resumen inferior,
+  - barra inferior muestra total, cantidad y lleva a ventana de confirmacion.
+- Ajustes de modelo/listado:
+  - `OrderSummary` extiende parseo con `no_pidio` y `motivo_no_pedido`,
+  - busqueda local en listado incluye estado `no pidio` y nombre de motivo.
+- Validacion tecnica:
+  - `flutter analyze` en verde (sin issues),
+  - `flutter test` en verde.
