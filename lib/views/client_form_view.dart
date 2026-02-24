@@ -32,6 +32,7 @@ class _ClientFormViewState extends State<ClientFormView> {
   final _nombreController = TextEditingController();
   final _nombreComercialController = TextEditingController();
   final _nitController = TextEditingController();
+  final _nrcController = TextEditingController();
   final _duiController = TextEditingController();
   final _pasaporteController = TextEditingController();
   final _telefonoController = TextEditingController();
@@ -66,6 +67,7 @@ class _ClientFormViewState extends State<ClientFormView> {
     _nombreController.text = client.nombre;
     _nombreComercialController.text = client.nombreComercial ?? '';
     _nitController.text = client.nit ?? '';
+    _nrcController.text = client.nrc ?? '';
     _duiController.text = client.dui ?? '';
     _pasaporteController.text = client.pasaporte ?? '';
     _telefonoController.text = client.telefono ?? '';
@@ -102,6 +104,7 @@ class _ClientFormViewState extends State<ClientFormView> {
     _nombreController.dispose();
     _nombreComercialController.dispose();
     _nitController.dispose();
+    _nrcController.dispose();
     _duiController.dispose();
     _pasaporteController.dispose();
     _telefonoController.dispose();
@@ -253,6 +256,10 @@ class _ClientFormViewState extends State<ClientFormView> {
                                 _buildTextField(
                                   controller: _nitController,
                                   label: 'NIT',
+                                ),
+                                _buildTextField(
+                                  controller: _nrcController,
+                                  label: 'NRC',
                                 ),
                                 _buildTextField(
                                   controller: _duiController,
@@ -808,6 +815,7 @@ class _ClientFormViewState extends State<ClientFormView> {
             nombre: _nombreController.text,
             nombreComercial: _nombreComercialController.text,
             nit: _nitController.text,
+            nrc: _nrcController.text,
             dui: _duiController.text,
             pasaporte: _pasaporteController.text,
             telefono: _telefonoController.text,
@@ -826,6 +834,7 @@ class _ClientFormViewState extends State<ClientFormView> {
             nombre: _nombreController.text,
             nombreComercial: _nombreComercialController.text,
             nit: _nitController.text,
+            nrc: _nrcController.text,
             dui: _duiController.text,
             pasaporte: _pasaporteController.text,
             telefono: _telefonoController.text,

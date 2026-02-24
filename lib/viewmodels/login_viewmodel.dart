@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -16,6 +18,8 @@ class LoginViewModel extends ChangeNotifier {
   static const _lastEmailKey = 'last_login_email';
   static const _lastPasswordKey = 'last_login_password';
   static const _hasLoggedInKey = 'has_logged_in';
+  static const _networkProbeTimeout = Duration(seconds: 2);
+  static const _loginRequestTimeout = Duration(seconds: 6);
 
   final FlutterSecureStorage _secureStorage;
 
@@ -105,7 +109,7 @@ class LoginViewModel extends ChangeNotifier {
         return;
       }
 
-      final hasConnection = await _hasConnection();
+      final hasConnection = await _hasInternetAccess(apiConfig);
       debugTrace(
         'LOGIN_VM',
         'login start hasConnection=$hasConnection email=$_email',
@@ -163,6 +167,19 @@ class LoginViewModel extends ChangeNotifier {
         _errorMessage = message;
         _infoMessage = null;
       }
+    } on TimeoutException {
+      if (await _tryOfflineLogin(allowWithoutToken: true)) {
+        return;
+      }
+      _errorMessage =
+          'No hay respuesta de la API. Verifica internet o servidor.';
+      _infoMessage = null;
+    } on SocketException {
+      if (await _tryOfflineLogin(allowWithoutToken: true)) {
+        return;
+      }
+      _errorMessage = 'Sin conexion a internet o sin acceso a la API.';
+      _infoMessage = null;
     } catch (_) {
       if (await _tryOfflineLogin(allowWithoutToken: true)) {
         return;
@@ -195,7 +212,9 @@ class LoginViewModel extends ChangeNotifier {
       'LOGIN_VM',
       'POST $uri headers=${redactHeaders(headers)} body=${debugBodyPreview(jsonEncode(payload))}',
     );
-    return http.post(uri, headers: headers, body: jsonEncode(payload));
+    return http
+        .post(uri, headers: headers, body: jsonEncode(payload))
+        .timeout(_loginRequestTimeout);
   }
 
   Future<String> _getDeviceName() async {
@@ -223,9 +242,44 @@ class LoginViewModel extends ChangeNotifier {
     return _deviceName!;
   }
 
-  Future<bool> _hasConnection() async {
+  Future<bool> _hasInternetAccess(ApiConfig config) async {
     final results = await Connectivity().checkConnectivity();
-    return results.any((result) => result != ConnectivityResult.none);
+    if (!results.any((result) => result != ConnectivityResult.none)) {
+      return false;
+    }
+
+    final uri = Uri.tryParse(config.baseUrl.trim());
+    if (uri == null || uri.host.isEmpty) {
+      return true;
+    }
+
+    final host = uri.host;
+    final port = uri.hasPort
+        ? uri.port
+        : (uri.scheme.toLowerCase() == 'https' ? 443 : 80);
+
+    try {
+      final addresses = await InternetAddress.lookup(
+        host,
+      ).timeout(_networkProbeTimeout);
+      if (addresses.isEmpty) {
+        return false;
+      }
+
+      final socket = await Socket.connect(
+        host,
+        port,
+        timeout: _networkProbeTimeout,
+      );
+      socket.destroy();
+      return true;
+    } on TimeoutException {
+      return false;
+    } on SocketException {
+      return false;
+    } catch (_) {
+      return true;
+    }
   }
 
   Future<bool> _tryOfflineLogin({required bool allowWithoutToken}) async {

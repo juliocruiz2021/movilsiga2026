@@ -47,6 +47,18 @@ class _ClientsViewState extends State<ClientsView> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final palette = context.palette;
+    final authRole = context.select<AuthViewModel, String>(
+      (auth) => auth.role.trim(),
+    );
+    final hasSession = context.select<AuthViewModel, bool>(
+      (auth) =>
+          auth.hasToken ||
+          auth.userId.trim().isNotEmpty ||
+          auth.userEmail.trim().isNotEmpty,
+    );
+    final isOffline = context.select<ClientsViewModel, bool>(
+      (vm) => vm.isOffline,
+    );
     final canViewClients = context.select<AuthViewModel, bool>(
       (auth) =>
           auth.hasPermission('socios.view') ||
@@ -67,13 +79,23 @@ class _ClientsViewState extends State<ClientsView> {
           auth.hasPermission('socios.delete') ||
           auth.hasPermission('clientes.delete'),
     );
+    final allowOfflineViewFallback =
+        isOffline && authRole.isEmpty && hasSession;
+    final canRenderClients = canViewClients || allowOfflineViewFallback;
 
-    if (!canViewClients) {
+    if (!canRenderClients) {
       return Center(
         child: Text(
           'No tienes permiso para ver clientes.',
           style: theme.textTheme.bodyMedium?.copyWith(color: palette.textMuted),
         ),
+      );
+    }
+
+    if (allowOfflineViewFallback) {
+      debugTrace(
+        'CLIENTS_UI',
+        'Offline permission fallback enabled (role empty, session available).',
       );
     }
 

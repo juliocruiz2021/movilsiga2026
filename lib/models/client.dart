@@ -8,6 +8,7 @@ class Client {
     required this.esProveedor,
     this.nombreComercial,
     this.nit,
+    this.nrc,
     this.dui,
     this.pasaporte,
     this.telefono,
@@ -35,6 +36,7 @@ class Client {
   final bool esProveedor;
   final String? nombreComercial;
   final String? nit;
+  final String? nrc;
   final String? dui;
   final String? pasaporte;
   final String? telefono;
@@ -91,6 +93,7 @@ class Client {
       esProveedor: _toBool(json['es_proveedor']) ?? false,
       nombreComercial: _toStringOrNull(json['nombre_comercial']),
       nit: _toStringOrNull(json['nit']),
+      nrc: _toStringOrNull(json['nrc']) ?? _toStringOrNull(json['nr']),
       dui: _toStringOrNull(json['dui']),
       pasaporte: _toStringOrNull(json['pasaporte']),
       telefono: _toStringOrNull(json['telefono']),

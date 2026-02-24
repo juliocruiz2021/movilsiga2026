@@ -593,3 +593,27 @@ Notas:
 - Validacion:
   - `flutter analyze` en verde,
   - `flutter test` en verde.
+
+### 2026-02-24 (pedidos: series y multiplicador de cantidad)
+- Ajustes operativos en formulario de pedido:
+  - selector `1X` convertido a multiplicador real de toque (`1X/2X/3X/5X/10X`),
+  - comportamiento one-shot: despues de agregar producto con multiplicador distinto de `1X`, vuelve automaticamente a `1X`.
+- Ajuste de carga de series en encabezado:
+  - se prioriza busqueda por `document_type + sucursal + punto_venta + anio(fecha pedido)`,
+  - incluye fallback progresivo (`sin anio` y `por tipo`) para evitar listas vacias por filtros estrictos,
+  - se filtran series incompatibles para pedidos de venta (no usar series ligadas a `bodega_id`).
+- Resultado:
+  - mejora de disponibilidad de series en flujo de confirmacion,
+  - UX mas rapida para captura por volumen.
+- Validacion:
+  - `flutter analyze` en verde.
+
+### 2026-02-24 (login: deteccion offline mas rapida)
+- Se corrige demora excesiva al iniciar sesion sin internet:
+  - `LoginViewModel` ahora aplica verificacion rapida de conectividad real hacia host API (DNS + socket con timeout corto),
+  - request de login usa timeout explicito para evitar esperas largas cuando no hay respuesta del servidor.
+- Manejo de errores mejorado en login:
+  - mensajes especificos para timeout y falta de conectividad,
+  - se mantiene fallback de sesion offline cuando el usuario ya habia iniciado sesion previamente.
+- Validacion:
+  - `flutter analyze lib/viewmodels/login_viewmodel.dart` en verde.

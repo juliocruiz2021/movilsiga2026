@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -43,6 +44,7 @@ class OrderEditorViewModel extends ChangeNotifier {
   final List<OrderDocumentTypeOption> _tiposDocumento = [];
   final List<OrderSeriesOption> _series = [];
   final List<OrderReasonOption> _motivosNoPedido = [];
+  final List<OrderLookupOption> _productCategories = [];
 
   int? _selectedSucursalId;
   int? _selectedPuntoVentaId;
@@ -52,6 +54,7 @@ class OrderEditorViewModel extends ChangeNotifier {
   int? _selectedTipoDocumentoId;
   int? _selectedSerieId;
   int? _selectedMotivoNoPedidoId;
+  int? _selectedProductCategoryId;
 
   bool _serieAutomatica = true;
   int? _numeroManual;
@@ -63,6 +66,7 @@ class OrderEditorViewModel extends ChangeNotifier {
 
   final Map<int, OrderLineDraft> _lineas = {};
   int _summaryPulse = 0;
+  int _tapMultiplier = 1;
 
   int? get orderId => _orderId;
   bool get isLoadingInitial => _isLoadingInitial;
@@ -94,6 +98,8 @@ class OrderEditorViewModel extends ChangeNotifier {
   List<OrderSeriesOption> get series => List.unmodifiable(_series);
   List<OrderReasonOption> get motivosNoPedido =>
       List.unmodifiable(_motivosNoPedido);
+  List<OrderLookupOption> get productCategories =>
+      List.unmodifiable(_productCategories);
 
   int? get selectedSucursalId => _selectedSucursalId;
   int? get selectedPuntoVentaId => _selectedPuntoVentaId;
@@ -103,6 +109,7 @@ class OrderEditorViewModel extends ChangeNotifier {
   int? get selectedTipoDocumentoId => _selectedTipoDocumentoId;
   int? get selectedSerieId => _selectedSerieId;
   int? get selectedMotivoNoPedidoId => _selectedMotivoNoPedidoId;
+  int? get selectedProductCategoryId => _selectedProductCategoryId;
 
   bool get serieAutomatica => _serieAutomatica;
   int? get numeroManual => _numeroManual;
@@ -118,6 +125,7 @@ class OrderEditorViewModel extends ChangeNotifier {
   double get totalPedido =>
       _lineas.values.fold(0, (sum, line) => sum + line.subtotal);
   int get summaryPulse => _summaryPulse;
+  int get tapMultiplier => _tapMultiplier;
 
   void updateDependencies(SettingsViewModel settings, AuthViewModel auth) {
     _settings = settings;
@@ -141,6 +149,7 @@ class OrderEditorViewModel extends ChangeNotifier {
         _loadCentrosCosto(),
         _loadTiposDocumento(),
         _loadMotivosNoPedido(),
+        _loadProductCategories(),
       ]);
 
       _ensureBaseSelections();
@@ -175,6 +184,7 @@ class OrderEditorViewModel extends ChangeNotifier {
     if (_isSameDate(_fecha, normalized)) return;
     _fecha = normalized;
     notifyListeners();
+    unawaited(_loadSeries());
   }
 
   void setObservaciones(String value) {
@@ -214,13 +224,6 @@ class OrderEditorViewModel extends ChangeNotifier {
 
   Future<void> searchClients(String query) async {
     final term = query.trim();
-    if (term.isEmpty) {
-      _clientResults.clear();
-      _isLoadingClients = false;
-      notifyListeners();
-      return;
-    }
-
     final config = _currentConfig();
     final auth = await _readyAuth();
     if (config == null || auth == null) {
@@ -234,11 +237,13 @@ class OrderEditorViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
+      final params = <String, String>{'activo': '1', 'per_page': '20'};
+      if (term.isNotEmpty) {
+        params['q'] = term;
+      }
       final uri = config
           .buildUri('/${config.companyCode}/clientes')
-          .replace(
-            queryParameters: {'q': term, 'activo': '1', 'per_page': '20'},
-          );
+          .replace(queryParameters: params);
       final response = await http.get(uri, headers: _authHeaders(auth));
       if (!_isSuccess(response.statusCode)) {
         _clientResults.clear();
@@ -337,11 +342,24 @@ class OrderEditorViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setProductCategory(int? id) {
+    if (_selectedProductCategoryId == id) return;
+    _selectedProductCategoryId = id;
+    loadProducts(reset: true);
+  }
+
   void updateProductSearch(String value) {
     final normalized = value.trim();
     if (_productSearch == normalized) return;
     _productSearch = normalized;
     loadProducts(reset: true);
+  }
+
+  void setTapMultiplier(int value) {
+    final normalized = value < 1 ? 1 : value;
+    if (_tapMultiplier == normalized) return;
+    _tapMultiplier = normalized;
+    notifyListeners();
   }
 
   Future<void> loadProducts({bool reset = false}) async {
@@ -371,6 +389,9 @@ class OrderEditorViewModel extends ChangeNotifier {
       };
       if (_productSearch.isNotEmpty) {
         params['q'] = _productSearch;
+      }
+      if (_selectedProductCategoryId != null) {
+        params['product_category_id'] = _selectedProductCategoryId.toString();
       }
 
       final uri = config
@@ -419,11 +440,12 @@ class OrderEditorViewModel extends ChangeNotifier {
     }
   }
 
-  void addProduct(Product product) {
+  void addProduct(Product product, {int quantity = 1}) {
     if (_noPidio) return;
 
     final current = _lineas[product.id];
-    final nextQty = (current?.cantidad ?? 0) + 1;
+    final increment = quantity < 1 ? 1 : quantity.toDouble();
+    final nextQty = (current?.cantidad ?? 0) + increment;
     _lineas[product.id] = OrderLineDraft(
       productId: product.id,
       codigo: product.codigo,
@@ -919,19 +941,60 @@ class OrderEditorViewModel extends ChangeNotifier {
       return;
     }
 
-    final items = await _fetchAllPages(
+    final selectedType = _selectedTipoDocumentoId.toString();
+    final selectedSucursal = _selectedSucursalId.toString();
+    final selectedPuntoVenta = _selectedPuntoVentaId.toString();
+    final selectedYear = _fecha.year.toString();
+
+    var items = await _fetchAllPages(
       path: '/series',
       keys: const ['series'],
       params: {
-        'document_type_id': _selectedTipoDocumentoId.toString(),
-        'sucursal_id': _selectedSucursalId.toString(),
-        'punto_venta_id': _selectedPuntoVentaId.toString(),
+        'document_type_id': selectedType,
+        'sucursal_id': selectedSucursal,
+        'punto_venta_id': selectedPuntoVenta,
+        'anio': selectedYear,
       },
     );
 
+    if (items.isEmpty) {
+      items = await _fetchAllPages(
+        path: '/series',
+        keys: const ['series'],
+        params: {
+          'document_type_id': selectedType,
+          'sucursal_id': selectedSucursal,
+          'punto_venta_id': selectedPuntoVenta,
+        },
+      );
+    }
+
+    if (items.isEmpty) {
+      items = await _fetchAllPages(
+        path: '/series',
+        keys: const ['series'],
+        params: {
+          'document_type_id': selectedType,
+          'anio': selectedYear,
+        },
+      );
+    }
+
+    if (items.isEmpty) {
+      items = await _fetchAllPages(
+        path: '/series',
+        keys: const ['series'],
+        params: {'document_type_id': selectedType},
+      );
+    }
+
     _series
       ..clear()
-      ..addAll(items.map(OrderSeriesOption.fromJson));
+      ..addAll(
+        items
+            .map(OrderSeriesOption.fromJson)
+            .where(_seriesMatchesHeaderSelection),
+      );
 
     if (!_series.any((item) => item.id == _selectedSerieId)) {
       _selectedSerieId = _series.isEmpty ? null : _series.first.id;
@@ -951,6 +1014,18 @@ class OrderEditorViewModel extends ChangeNotifier {
       _numeroManual = null;
     }
     notifyListeners();
+  }
+
+  bool _seriesMatchesHeaderSelection(OrderSeriesOption item) {
+    final sucursalMatch =
+        item.sucursalId == null || item.sucursalId == _selectedSucursalId;
+    final puntoVentaMatch = item.puntoVentaId == null ||
+        item.puntoVentaId == _selectedPuntoVentaId;
+
+    // Pedidos/ventas no deben usar series amarradas a una bodega.
+    final validForVentas = item.bodegaId == null;
+
+    return sucursalMatch && puntoVentaMatch && validForVentas;
   }
 
   Future<void> _loadMotivosNoPedido() async {
@@ -974,6 +1049,24 @@ class OrderEditorViewModel extends ChangeNotifier {
     } finally {
       _isLoadingReasons = false;
       notifyListeners();
+    }
+  }
+
+  Future<void> _loadProductCategories() async {
+    final items = await _fetchAllPages(
+      path: '/categorias',
+      keys: const ['categories'],
+    );
+
+    _productCategories
+      ..clear()
+      ..addAll(items.map(OrderLookupOption.fromJson));
+
+    if (_selectedProductCategoryId != null &&
+        !_productCategories.any(
+          (item) => item.id == _selectedProductCategoryId,
+        )) {
+      _selectedProductCategoryId = null;
     }
   }
 
@@ -1051,6 +1144,27 @@ class OrderEditorViewModel extends ChangeNotifier {
       'Authorization': auth.authorizationHeader,
       'Content-Type': 'application/json',
     });
+  }
+
+  String resolveImageUrl(String? url) {
+    if (url == null || url.trim().isEmpty) return '';
+    final raw = url.trim();
+    final baseOrigin = _baseOrigin();
+
+    if (raw.startsWith('http://') || raw.startsWith('https://')) {
+      if (baseOrigin == null) return raw;
+      final uri = Uri.tryParse(raw);
+      if (uri == null) return raw;
+      final host = uri.host.toLowerCase();
+      if (host == 'localhost' || host == '127.0.0.1') {
+        return '$baseOrigin${uri.path}${uri.hasQuery ? '?${uri.query}' : ''}';
+      }
+      return raw;
+    }
+
+    if (baseOrigin == null) return raw;
+    final path = raw.startsWith('/') ? raw : '/$raw';
+    return '$baseOrigin$path';
   }
 
   bool _isSuccess(int code) => code >= 200 && code < 300;
@@ -1145,6 +1259,15 @@ class OrderEditorViewModel extends ChangeNotifier {
   static bool _isSameDate(DateTime a, DateTime b) {
     return a.year == b.year && a.month == b.month && a.day == b.day;
   }
+
+  String? _baseOrigin() {
+    final config = _currentConfig();
+    if (config == null) return null;
+    final uri = Uri.tryParse(config.baseUrl.trim());
+    if (uri == null || uri.scheme.isEmpty || uri.host.isEmpty) return null;
+    final port = uri.hasPort ? ':${uri.port}' : '';
+    return '${uri.scheme}://${uri.host}$port';
+  }
 }
 
 class OrderLookupOption {
@@ -1199,16 +1322,25 @@ class OrderSeriesOption extends OrderLookupOption {
     required super.codigo,
     required super.nombre,
     required this.automatica,
+    this.anio,
+    this.sucursalId,
+    this.puntoVentaId,
+    this.bodegaId,
   });
 
   final bool automatica;
+  final int? anio;
+  final int? sucursalId;
+  final int? puntoVentaId;
+  final int? bodegaId;
 
   @override
   String get label {
     final mode = automatica ? 'Auto' : 'Manual';
     final code = codigo.trim();
-    if (code.isEmpty) return '$nombre ($mode)';
-    return '$code • $nombre ($mode)';
+    final anioLabel = anio == null ? '' : ' $anio';
+    if (code.isEmpty) return '$nombre$anioLabel ($mode)';
+    return '$code • $nombre$anioLabel ($mode)';
   }
 
   factory OrderSeriesOption.fromJson(Map<String, dynamic> json) {
@@ -1219,6 +1351,10 @@ class OrderSeriesOption extends OrderLookupOption {
       codigo: serie,
       nombre: nombre,
       automatica: _toBool(json['automatica']) ?? true,
+      anio: _toInt(json['anio']),
+      sucursalId: _toInt(json['sucursal_id']),
+      puntoVentaId: _toInt(json['punto_venta_id']),
+      bodegaId: _toInt(json['bodega_id']),
     );
   }
 }

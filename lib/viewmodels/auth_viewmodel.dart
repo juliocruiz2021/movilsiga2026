@@ -38,13 +38,14 @@ class AuthViewModel extends ChangeNotifier {
   DateTime? get loginAt =>
       _loginAtIso.isEmpty ? null : DateTime.tryParse(_loginAtIso);
   bool get hasToken => _token.isNotEmpty;
-  bool get isAdmin => _role == 'admin';
+  bool get isAdmin => _role.toLowerCase() == 'admin';
 
   String get authorizationHeader => '$_tokenType $_token'.trim();
   bool hasPermission(String permission) {
     if (_role.isEmpty) return false;
-    if (_role == 'admin') return true;
-    return RolePermissions.hasPermission(_role, permission);
+    final normalizedRole = _role.toLowerCase();
+    if (normalizedRole == 'admin') return true;
+    return RolePermissions.hasPermission(normalizedRole, permission);
   }
 
   Future<void> saveToken({required String token, String? tokenType}) async {
@@ -58,7 +59,7 @@ class AuthViewModel extends ChangeNotifier {
   }
 
   Future<void> saveRole(String role) async {
-    _role = role.trim();
+    _role = role.trim().toLowerCase();
     await _secureStorage.write(key: _authRoleKey, value: _role);
     notifyListeners();
   }
@@ -109,7 +110,9 @@ class AuthViewModel extends ChangeNotifier {
   Future<void> _load() async {
     _token = await _secureStorage.read(key: _authTokenKey) ?? '';
     _tokenType = await _secureStorage.read(key: _authTokenTypeKey) ?? 'Bearer';
-    _role = await _secureStorage.read(key: _authRoleKey) ?? '';
+    _role = (await _secureStorage.read(key: _authRoleKey) ?? '')
+        .trim()
+        .toLowerCase();
     _userId = await _secureStorage.read(key: _authUserIdKey) ?? '';
     _userName = await _secureStorage.read(key: _authUserNameKey) ?? '';
     _userEmail = await _secureStorage.read(key: _authUserEmailKey) ?? '';
