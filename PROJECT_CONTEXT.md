@@ -568,3 +568,14 @@ Notas:
 - Validacion tecnica despues del ajuste:
   - `flutter analyze` en verde,
   - `flutter test` en verde.
+
+### 2026-02-24 (punto de corte solicitado)
+- Se deja establecido este estado como corte de trabajo para continuar desde GitHub.
+- Flujo actual de pedidos quedo en 3 pasos:
+  - pantalla productos + selector de cliente,
+  - pantalla encabezado,
+  - pantalla confirmacion y guardado.
+- Pendiente acordado para siguiente bloque:
+  - ajuste visual 1:1 contra imagen de referencia del usuario (sin cambiar logica ya implementada).
+- Nota operativa:
+  - existen cambios locales del usuario en modulo clientes que no se tocan en este corte.
