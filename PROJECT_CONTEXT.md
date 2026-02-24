@@ -451,3 +451,50 @@ Notas:
 - Validacion:
   - `flutter analyze lib/views/products_view.dart` en verde.
 - APK release regenerado despues de los ajustes visuales finales.
+
+### 2026-02-13 (cierre de sesion: estabilidad offline + ficha cliente NRC)
+- Fix aplicado en productos para evitar filtro pegado al volver desde menu:
+  - al navegar desde `HomeView` hacia `Productos`, se ejecuta `resetFilters(reload: true)` antes del `pushReplacement`.
+  - resuelve el bug donde sin internet se mostraban solo items del ultimo texto buscado.
+- Ajuste de permisos offline en clientes:
+  - `AuthViewModel` normaliza `role` a minusculas al guardar/cargar y tambien en `hasPermission(...)`.
+  - `ClientsView` agrega fallback offline para no bloquear con "No tienes permiso..." cuando:
+    - hay sesion local valida,
+    - el rol esta vacio en memoria,
+    - y la app esta offline.
+- Ficha de cliente (Informacion fiscal):
+  - se agrega campo `nrc` en modelo/formulario/payload (`createClient` y `updateClient`).
+  - etiqueta visual final solicitada: `NRC` (sin puntos).
+  - compatibilidad de lectura mantenida: el modelo acepta `nrc` y fallback `nr`.
+- Estado tecnico de cierre:
+  - `flutter analyze` en verde sobre archivos tocados.
+- Punto de continuidad acordado:
+  - retomar mejoras de la ficha de clientes en la siguiente sesion (UX/campos y flujo operativo).
+
+### 2026-02-24 (enfoque pedidos: ocultar proveedores en menu + listado operativo)
+- Cambio de foco funcional:
+  - se pausa temporalmente `Proveedores` y se prioriza modulo `Pedidos`.
+- Ajuste de menu solicitado:
+  - `Proveedores` queda oculto **solo visualmente** en `NavigationDrawer`.
+  - no se elimina logica ni estructura existente del modulo para reactivarlo despues.
+- Nuevo modulo `Pedidos` en Flutter:
+  - nueva vista `OrdersView` integrada en `HomeView` (seccion `Pedidos`).
+  - nuevo `OrdersViewModel` registrado en `main.dart` con `Provider`.
+  - nuevo modelo `OrderSummary` para parseo de ventas/pedidos.
+- Comportamiento implementado en listado de pedidos:
+  - formato de lista compacta alineado al patron de productos/clientes,
+  - busqueda por texto (`q`) orientada a cliente/pedido,
+  - filtro por fecha con selector y valor por defecto = fecha actual,
+  - paginacion estandar (`kPageSize = 20`) con `loadMore` al hacer scroll,
+  - refresco manual y estados de carga/error/offline.
+- Integracion API usada por pedidos:
+  - `GET /api/{empresa}/ventas` con:
+    - `tipo_registro=PED`,
+    - `fecha=YYYY-MM-DD`,
+    - `q` (cuando aplica),
+    - `page` y `per_page`.
+- Validacion tecnica del bloque Flutter:
+  - `flutter analyze` en verde (global y archivos tocados).
+  - `flutter test` en verde.
+- Coordinacion con backend APISIGA:
+  - se solicita y aplica soporte server-side para `q` + `fecha` en `ventas` para que el filtro/busqueda opere de forma consistente en paginacion.

@@ -11,6 +11,7 @@ import 'viewmodels/auth_viewmodel.dart';
 import 'viewmodels/clients_viewmodel.dart';
 import 'viewmodels/connectivity_viewmodel.dart';
 import 'viewmodels/login_viewmodel.dart';
+import 'viewmodels/orders_viewmodel.dart';
 import 'viewmodels/products_viewmodel.dart';
 import 'viewmodels/settings_viewmodel.dart';
 import 'views/login_view.dart';
@@ -75,6 +76,15 @@ class App extends StatelessWidget {
           create: (_) => ClientsViewModel(),
           update: (_, settings, auth, vm) =>
               (vm ?? ClientsViewModel())..updateDependencies(settings, auth),
+        ),
+        ChangeNotifierProxyProvider2<
+          SettingsViewModel,
+          AuthViewModel,
+          OrdersViewModel
+        >(
+          create: (_) => OrdersViewModel(),
+          update: (_, settings, auth, vm) =>
+              (vm ?? OrdersViewModel())..updateDependencies(settings, auth),
         ),
         ChangeNotifierProxyProvider3<
           SettingsViewModel,

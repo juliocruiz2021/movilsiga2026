@@ -7,6 +7,7 @@ import '../viewmodels/products_viewmodel.dart';
 import '../utils/debug_tools.dart';
 import 'clients_view.dart';
 import 'login_view.dart';
+import 'orders_view.dart';
 import 'products_view.dart';
 import 'settings_view.dart';
 import 'widgets/app_themed_background.dart';
@@ -77,11 +78,7 @@ class _HomeViewState extends State<HomeView> {
               'Aqui se mostrara el control de proveedores (socios proveedor) con CRUD y sincronizacion offline.',
         );
       case 3:
-        return const _ModulePlaceholder(
-          title: 'Pedidos',
-          description:
-              'Aqui se construira el levantamiento de pedidos en ruta usando tipo_registro=PED.',
-        );
+        return const OrdersView();
       default:
         return const SizedBox.shrink();
     }
@@ -92,6 +89,9 @@ class _HomeViewState extends State<HomeView> {
     Navigator.of(context).pop();
     if (index == _selectedIndex) return;
     if (index == MainMenuIndex.products) {
+      final productsVm = context.read<ProductsViewModel>();
+      productsVm.resetFilters(reload: true);
+      debugTrace('NAV', 'Reset products filters before opening Products');
       debugTrace('NAV', 'Navigating to Products via pushReplacement');
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(

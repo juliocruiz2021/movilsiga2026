@@ -19,20 +19,28 @@ class MainNavigationDrawer extends StatelessWidget {
     required this.onDestinationSelected,
     required this.onOpenSettings,
     required this.onLogout,
+    this.showSuppliers = false,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
   final VoidCallback onOpenSettings;
   final VoidCallback onLogout;
+  final bool showSuppliers;
 
   @override
   Widget build(BuildContext context) {
+    final visualSelectedIndex = _menuIndexToVisualIndex(selectedIndex);
+
     return NavigationDrawer(
-      selectedIndex: selectedIndex,
-      onDestinationSelected: (index) {
-        debugTrace('DRAWER', 'Destination selected index=$index');
-        onDestinationSelected(index);
+      selectedIndex: visualSelectedIndex,
+      onDestinationSelected: (visualIndex) {
+        final menuIndex = _visualIndexToMenuIndex(visualIndex);
+        debugTrace(
+          'DRAWER',
+          'Destination selected visual=$visualIndex menu=$menuIndex',
+        );
+        onDestinationSelected(menuIndex);
       },
       children: [
         const Padding(
@@ -52,11 +60,12 @@ class MainNavigationDrawer extends StatelessWidget {
           selectedIcon: Icon(Icons.people),
           label: Text('Clientes'),
         ),
-        const NavigationDrawerDestination(
-          icon: Icon(Icons.storefront_outlined),
-          selectedIcon: Icon(Icons.storefront),
-          label: Text('Proveedores'),
-        ),
+        if (showSuppliers)
+          const NavigationDrawerDestination(
+            icon: Icon(Icons.storefront_outlined),
+            selectedIcon: Icon(Icons.storefront),
+            label: Text('Proveedores'),
+          ),
         const NavigationDrawerDestination(
           icon: Icon(Icons.receipt_long_outlined),
           selectedIcon: Icon(Icons.receipt_long),
@@ -92,5 +101,24 @@ class MainNavigationDrawer extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  int _menuIndexToVisualIndex(int menuIndex) {
+    if (showSuppliers) return menuIndex;
+    if (menuIndex == MainMenuIndex.suppliers) {
+      return MainMenuIndex.clients;
+    }
+    if (menuIndex > MainMenuIndex.suppliers) {
+      return menuIndex - 1;
+    }
+    return menuIndex;
+  }
+
+  int _visualIndexToMenuIndex(int visualIndex) {
+    if (showSuppliers) return visualIndex;
+    if (visualIndex >= MainMenuIndex.suppliers) {
+      return visualIndex + 1;
+    }
+    return visualIndex;
   }
 }
