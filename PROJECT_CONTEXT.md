@@ -498,3 +498,24 @@ Notas:
   - `flutter test` en verde.
 - Coordinacion con backend APISIGA:
   - se solicita y aplica soporte server-side para `q` + `fecha` en `ventas` para que el filtro/busqueda opere de forma consistente en paginacion.
+
+### 2026-02-24 (pedidos: filtro fecha con rigor operativo)
+- Ajuste funcional solicitado en `Pedidos` para evitar rangos abiertos:
+  - ya no se permite filtro parcial por fecha.
+  - se implementan solo dos modos validos:
+    - `Misma fecha` (internamente `fecha_desde = fecha_hasta`),
+    - `Rango` (`fecha_desde` y `fecha_hasta` obligatorias).
+  - regla estricta aplicada en app: `fecha_desde <= fecha_hasta`.
+- Cambios de UI/UX en `OrdersView`:
+  - selector de modo (`Misma fecha` / `Rango`),
+  - pickers dedicados `Desde` y `Hasta` en modo rango,
+  - ambos valores siempre presentes; no hay estado con fechas vacias.
+- Integracion API actualizada en `OrdersViewModel`:
+  - listado usa `GET /api/{empresa}/ventas` con:
+    - `tipo_registro=PED`,
+    - `fecha_desde`,
+    - `fecha_hasta`,
+    - `q`, `page`, `per_page`.
+- Validacion tecnica:
+  - `flutter analyze` en verde.
+  - `flutter test` en verde.

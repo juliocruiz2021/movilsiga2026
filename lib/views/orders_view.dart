@@ -83,10 +83,15 @@ class _OrdersViewState extends State<OrdersView> {
           children: [
             _OrdersToolbar(
               searchController: _searchController,
-              selectedDate: vm.selectedDate,
+              dateFilterMode: vm.dateFilterMode,
+              fromDate: vm.fromDate,
+              toDate: vm.toDate,
               onSearch: vm.updateSearch,
               onRefresh: vm.refresh,
-              onPickDate: () => _pickDate(context, vm),
+              onModeChanged: vm.updateDateFilterMode,
+              onPickExactDate: () => _pickExactDate(context, vm),
+              onPickFromDate: () => _pickFromDate(context, vm),
+              onPickToDate: () => _pickToDate(context, vm),
               onSetToday: vm.setToday,
             ),
             const SizedBox(height: 10),
@@ -146,40 +151,77 @@ class _OrdersViewState extends State<OrdersView> {
     );
   }
 
-  Future<void> _pickDate(BuildContext context, OrdersViewModel vm) async {
+  Future<void> _pickExactDate(BuildContext context, OrdersViewModel vm) async {
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      initialDate: vm.selectedDate,
+      initialDate: vm.fromDate,
       firstDate: DateTime(now.year - 2, 1, 1),
       lastDate: DateTime(now.year + 2, 12, 31),
     );
     if (picked == null) return;
-    vm.updateDate(picked);
+    vm.updateExactDate(picked);
+  }
+
+  Future<void> _pickFromDate(BuildContext context, OrdersViewModel vm) async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: vm.fromDate,
+      firstDate: DateTime(now.year - 2, 1, 1),
+      lastDate: DateTime(now.year + 2, 12, 31),
+    );
+    if (picked == null) return;
+    vm.updateFromDate(picked);
+  }
+
+  Future<void> _pickToDate(BuildContext context, OrdersViewModel vm) async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: vm.toDate,
+      firstDate: DateTime(now.year - 2, 1, 1),
+      lastDate: DateTime(now.year + 2, 12, 31),
+    );
+    if (picked == null) return;
+    vm.updateToDate(picked);
   }
 }
 
 class _OrdersToolbar extends StatelessWidget {
   const _OrdersToolbar({
     required this.searchController,
-    required this.selectedDate,
+    required this.dateFilterMode,
+    required this.fromDate,
+    required this.toDate,
     required this.onSearch,
     required this.onRefresh,
-    required this.onPickDate,
+    required this.onModeChanged,
+    required this.onPickExactDate,
+    required this.onPickFromDate,
+    required this.onPickToDate,
     required this.onSetToday,
   });
 
   final TextEditingController searchController;
-  final DateTime selectedDate;
+  final OrderDateFilterMode dateFilterMode;
+  final DateTime fromDate;
+  final DateTime toDate;
   final ValueChanged<String> onSearch;
   final Future<void> Function() onRefresh;
-  final VoidCallback onPickDate;
+  final ValueChanged<OrderDateFilterMode> onModeChanged;
+  final VoidCallback onPickExactDate;
+  final VoidCallback onPickFromDate;
+  final VoidCallback onPickToDate;
   final VoidCallback onSetToday;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final isToday = _isSameDate(selectedDate, DateTime.now());
+    final isToday =
+        _isSameDate(fromDate, DateTime.now()) &&
+        _isSameDate(toDate, DateTime.now());
+    final isExactMode = dateFilterMode == OrderDateFilterMode.exactDay;
 
     return Column(
       children: [
@@ -222,18 +264,74 @@ class _OrdersToolbar extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: OutlinedButton.icon(
-                onPressed: onPickDate,
-                icon: const Icon(Icons.calendar_today_outlined, size: 18),
-                label: Text(_formatDateForUi(selectedDate)),
+              child: ChoiceChip(
+                label: const Text('Misma fecha'),
+                selected: isExactMode,
+                onSelected: (_) => onModeChanged(OrderDateFilterMode.exactDay),
+                selectedColor: palette.primary,
+                labelStyle: TextStyle(
+                  color: isExactMode ? palette.onPrimary : palette.textStrong,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
-            if (!isToday) ...[
-              const SizedBox(width: 8),
-              TextButton(onPressed: onSetToday, child: const Text('Hoy')),
-            ],
+            const SizedBox(width: 8),
+            Expanded(
+              child: ChoiceChip(
+                label: const Text('Rango'),
+                selected: !isExactMode,
+                onSelected: (_) => onModeChanged(OrderDateFilterMode.range),
+                selectedColor: palette.primary,
+                labelStyle: TextStyle(
+                  color: !isExactMode ? palette.onPrimary : palette.textStrong,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
           ],
         ),
+        const SizedBox(height: 8),
+        if (isExactMode)
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onPickExactDate,
+                  icon: const Icon(Icons.calendar_today_outlined, size: 18),
+                  label: Text('Fecha: ${_formatDateForUi(fromDate)}'),
+                ),
+              ),
+            ],
+          )
+        else
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onPickFromDate,
+                  icon: const Icon(Icons.calendar_today_outlined, size: 18),
+                  label: Text('Desde: ${_formatDateForUi(fromDate)}'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onPickToDate,
+                  icon: const Icon(Icons.event_outlined, size: 18),
+                  label: Text('Hasta: ${_formatDateForUi(toDate)}'),
+                ),
+              ),
+            ],
+          ),
+        if (!isToday) ...[
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              const Spacer(),
+              TextButton(onPressed: onSetToday, child: const Text('Hoy')),
+            ],
+          ),
+        ],
       ],
     );
   }

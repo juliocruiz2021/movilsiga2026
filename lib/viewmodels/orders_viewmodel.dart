@@ -12,13 +12,17 @@ import '../utils/debug_tools.dart';
 import 'auth_viewmodel.dart';
 import 'settings_viewmodel.dart';
 
+enum OrderDateFilterMode { exactDay, range }
+
 class OrdersViewModel extends ChangeNotifier {
   SettingsViewModel? _settings;
   AuthViewModel? _auth;
 
   final List<OrderSummary> _orders = [];
   String _searchQuery = '';
-  DateTime _selectedDate = _dateOnly(DateTime.now());
+  DateTime _fromDate = _dateOnly(DateTime.now());
+  DateTime _toDate = _dateOnly(DateTime.now());
+  OrderDateFilterMode _dateFilterMode = OrderDateFilterMode.exactDay;
   bool _isLoading = false;
   bool _isLoadingMore = false;
   bool _isOffline = false;
@@ -30,7 +34,9 @@ class OrdersViewModel extends ChangeNotifier {
 
   List<OrderSummary> get orders => List.unmodifiable(_orders);
   String get searchQuery => _searchQuery;
-  DateTime get selectedDate => _selectedDate;
+  DateTime get fromDate => _fromDate;
+  DateTime get toDate => _toDate;
+  OrderDateFilterMode get dateFilterMode => _dateFilterMode;
   bool get isLoading => _isLoading;
   bool get isLoadingMore => _isLoadingMore;
   bool get isOffline => _isOffline;
@@ -67,15 +73,61 @@ class OrdersViewModel extends ChangeNotifier {
     loadInitial();
   }
 
-  void updateDate(DateTime value) {
+  void updateDateFilterMode(OrderDateFilterMode mode) {
+    if (_dateFilterMode == mode) return;
+    _dateFilterMode = mode;
+    if (_dateFilterMode == OrderDateFilterMode.exactDay) {
+      _toDate = _fromDate;
+    }
+    loadInitial();
+  }
+
+  void updateExactDate(DateTime value) {
     final normalized = _dateOnly(value);
-    if (_isSameDate(_selectedDate, normalized)) return;
-    _selectedDate = normalized;
+    final changed =
+        !_isSameDate(_fromDate, normalized) ||
+        !_isSameDate(_toDate, normalized);
+    if (!changed) return;
+    _fromDate = normalized;
+    _toDate = normalized;
+    loadInitial();
+  }
+
+  void updateFromDate(DateTime value) {
+    final normalized = _dateOnly(value);
+    if (_isSameDate(_fromDate, normalized) &&
+        (_dateFilterMode == OrderDateFilterMode.range ||
+            _isSameDate(_toDate, normalized))) {
+      return;
+    }
+
+    _fromDate = normalized;
+    if (_dateFilterMode == OrderDateFilterMode.exactDay ||
+        _fromDate.isAfter(_toDate)) {
+      _toDate = _fromDate;
+    }
+    loadInitial();
+  }
+
+  void updateToDate(DateTime value) {
+    final normalized = _dateOnly(value);
+    if (_dateFilterMode == OrderDateFilterMode.exactDay) {
+      updateExactDate(normalized);
+      return;
+    }
+    if (_isSameDate(_toDate, normalized) && !_fromDate.isAfter(normalized)) {
+      return;
+    }
+
+    _toDate = normalized;
+    if (_fromDate.isAfter(_toDate)) {
+      _fromDate = _toDate;
+    }
     loadInitial();
   }
 
   void setToday() {
-    updateDate(DateTime.now());
+    updateExactDate(DateTime.now());
   }
 
   Future<void> refresh() => loadInitial();
@@ -146,7 +198,8 @@ class OrdersViewModel extends ChangeNotifier {
       'page': page.toString(),
       'per_page': kPageSize.toString(),
       'tipo_registro': 'PED',
-      'fecha': _formatDate(_selectedDate),
+      'fecha_desde': _formatDate(_fromDate),
+      'fecha_hasta': _formatDate(_toDate),
     };
     if (_searchQuery.isNotEmpty) {
       params['q'] = _searchQuery;
@@ -213,7 +266,10 @@ class OrdersViewModel extends ChangeNotifier {
   bool _matchesDateFilter(OrderSummary order) {
     final date = order.fecha;
     if (date == null) return true;
-    return _isSameDate(_dateOnly(date), _selectedDate);
+    final orderDate = _dateOnly(date);
+    if (orderDate.isBefore(_fromDate)) return false;
+    if (orderDate.isAfter(_toDate)) return false;
+    return true;
   }
 
   bool _matchesSearchFilter(OrderSummary order) {
