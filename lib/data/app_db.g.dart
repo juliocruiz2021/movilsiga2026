@@ -3492,6 +3492,569 @@ class ProductSucursalStocksCompanion
   }
 }
 
+class $PendingOrdersTable extends PendingOrders
+    with TableInfo<$PendingOrdersTable, PendingOrderRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PendingOrdersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _clientRequestIdMeta = const VerificationMeta(
+    'clientRequestId',
+  );
+  @override
+  late final GeneratedColumn<String> clientRequestId = GeneratedColumn<String>(
+    'client_request_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+  );
+  static const VerificationMeta _payloadJsonMeta = const VerificationMeta(
+    'payloadJson',
+  );
+  @override
+  late final GeneratedColumn<String> payloadJson = GeneratedColumn<String>(
+    'payload_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('pending'),
+  );
+  static const VerificationMeta _attemptsMeta = const VerificationMeta(
+    'attempts',
+  );
+  @override
+  late final GeneratedColumn<int> attempts = GeneratedColumn<int>(
+    'attempts',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _lastErrorMeta = const VerificationMeta(
+    'lastError',
+  );
+  @override
+  late final GeneratedColumn<String> lastError = GeneratedColumn<String>(
+    'last_error',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _remoteOrderIdMeta = const VerificationMeta(
+    'remoteOrderId',
+  );
+  @override
+  late final GeneratedColumn<int> remoteOrderId = GeneratedColumn<int>(
+    'remote_order_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    clientRequestId,
+    payloadJson,
+    status,
+    attempts,
+    lastError,
+    remoteOrderId,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'pending_orders';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PendingOrderRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('client_request_id')) {
+      context.handle(
+        _clientRequestIdMeta,
+        clientRequestId.isAcceptableOrUnknown(
+          data['client_request_id']!,
+          _clientRequestIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('payload_json')) {
+      context.handle(
+        _payloadJsonMeta,
+        payloadJson.isAcceptableOrUnknown(
+          data['payload_json']!,
+          _payloadJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadJsonMeta);
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('attempts')) {
+      context.handle(
+        _attemptsMeta,
+        attempts.isAcceptableOrUnknown(data['attempts']!, _attemptsMeta),
+      );
+    }
+    if (data.containsKey('last_error')) {
+      context.handle(
+        _lastErrorMeta,
+        lastError.isAcceptableOrUnknown(data['last_error']!, _lastErrorMeta),
+      );
+    }
+    if (data.containsKey('remote_order_id')) {
+      context.handle(
+        _remoteOrderIdMeta,
+        remoteOrderId.isAcceptableOrUnknown(
+          data['remote_order_id']!,
+          _remoteOrderIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PendingOrderRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PendingOrderRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      clientRequestId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}client_request_id'],
+      ),
+      payloadJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload_json'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      attempts: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}attempts'],
+      )!,
+      lastError: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_error'],
+      ),
+      remoteOrderId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}remote_order_id'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $PendingOrdersTable createAlias(String alias) {
+    return $PendingOrdersTable(attachedDatabase, alias);
+  }
+}
+
+class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
+  final int id;
+  final String? clientRequestId;
+  final String payloadJson;
+  final String status;
+  final int attempts;
+  final String? lastError;
+  final int? remoteOrderId;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  const PendingOrderRow({
+    required this.id,
+    this.clientRequestId,
+    required this.payloadJson,
+    required this.status,
+    required this.attempts,
+    this.lastError,
+    this.remoteOrderId,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    if (!nullToAbsent || clientRequestId != null) {
+      map['client_request_id'] = Variable<String>(clientRequestId);
+    }
+    map['payload_json'] = Variable<String>(payloadJson);
+    map['status'] = Variable<String>(status);
+    map['attempts'] = Variable<int>(attempts);
+    if (!nullToAbsent || lastError != null) {
+      map['last_error'] = Variable<String>(lastError);
+    }
+    if (!nullToAbsent || remoteOrderId != null) {
+      map['remote_order_id'] = Variable<int>(remoteOrderId);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  PendingOrdersCompanion toCompanion(bool nullToAbsent) {
+    return PendingOrdersCompanion(
+      id: Value(id),
+      clientRequestId: clientRequestId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(clientRequestId),
+      payloadJson: Value(payloadJson),
+      status: Value(status),
+      attempts: Value(attempts),
+      lastError: lastError == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastError),
+      remoteOrderId: remoteOrderId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(remoteOrderId),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory PendingOrderRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PendingOrderRow(
+      id: serializer.fromJson<int>(json['id']),
+      clientRequestId: serializer.fromJson<String?>(json['clientRequestId']),
+      payloadJson: serializer.fromJson<String>(json['payloadJson']),
+      status: serializer.fromJson<String>(json['status']),
+      attempts: serializer.fromJson<int>(json['attempts']),
+      lastError: serializer.fromJson<String?>(json['lastError']),
+      remoteOrderId: serializer.fromJson<int?>(json['remoteOrderId']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'clientRequestId': serializer.toJson<String?>(clientRequestId),
+      'payloadJson': serializer.toJson<String>(payloadJson),
+      'status': serializer.toJson<String>(status),
+      'attempts': serializer.toJson<int>(attempts),
+      'lastError': serializer.toJson<String?>(lastError),
+      'remoteOrderId': serializer.toJson<int?>(remoteOrderId),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  PendingOrderRow copyWith({
+    int? id,
+    Value<String?> clientRequestId = const Value.absent(),
+    String? payloadJson,
+    String? status,
+    int? attempts,
+    Value<String?> lastError = const Value.absent(),
+    Value<int?> remoteOrderId = const Value.absent(),
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) => PendingOrderRow(
+    id: id ?? this.id,
+    clientRequestId: clientRequestId.present
+        ? clientRequestId.value
+        : this.clientRequestId,
+    payloadJson: payloadJson ?? this.payloadJson,
+    status: status ?? this.status,
+    attempts: attempts ?? this.attempts,
+    lastError: lastError.present ? lastError.value : this.lastError,
+    remoteOrderId: remoteOrderId.present
+        ? remoteOrderId.value
+        : this.remoteOrderId,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  PendingOrderRow copyWithCompanion(PendingOrdersCompanion data) {
+    return PendingOrderRow(
+      id: data.id.present ? data.id.value : this.id,
+      clientRequestId: data.clientRequestId.present
+          ? data.clientRequestId.value
+          : this.clientRequestId,
+      payloadJson: data.payloadJson.present
+          ? data.payloadJson.value
+          : this.payloadJson,
+      status: data.status.present ? data.status.value : this.status,
+      attempts: data.attempts.present ? data.attempts.value : this.attempts,
+      lastError: data.lastError.present ? data.lastError.value : this.lastError,
+      remoteOrderId: data.remoteOrderId.present
+          ? data.remoteOrderId.value
+          : this.remoteOrderId,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PendingOrderRow(')
+          ..write('id: $id, ')
+          ..write('clientRequestId: $clientRequestId, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('status: $status, ')
+          ..write('attempts: $attempts, ')
+          ..write('lastError: $lastError, ')
+          ..write('remoteOrderId: $remoteOrderId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    clientRequestId,
+    payloadJson,
+    status,
+    attempts,
+    lastError,
+    remoteOrderId,
+    createdAt,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PendingOrderRow &&
+          other.id == this.id &&
+          other.clientRequestId == this.clientRequestId &&
+          other.payloadJson == this.payloadJson &&
+          other.status == this.status &&
+          other.attempts == this.attempts &&
+          other.lastError == this.lastError &&
+          other.remoteOrderId == this.remoteOrderId &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class PendingOrdersCompanion extends UpdateCompanion<PendingOrderRow> {
+  final Value<int> id;
+  final Value<String?> clientRequestId;
+  final Value<String> payloadJson;
+  final Value<String> status;
+  final Value<int> attempts;
+  final Value<String?> lastError;
+  final Value<int?> remoteOrderId;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  const PendingOrdersCompanion({
+    this.id = const Value.absent(),
+    this.clientRequestId = const Value.absent(),
+    this.payloadJson = const Value.absent(),
+    this.status = const Value.absent(),
+    this.attempts = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.remoteOrderId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  });
+  PendingOrdersCompanion.insert({
+    this.id = const Value.absent(),
+    this.clientRequestId = const Value.absent(),
+    required String payloadJson,
+    this.status = const Value.absent(),
+    this.attempts = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.remoteOrderId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  }) : payloadJson = Value(payloadJson);
+  static Insertable<PendingOrderRow> custom({
+    Expression<int>? id,
+    Expression<String>? clientRequestId,
+    Expression<String>? payloadJson,
+    Expression<String>? status,
+    Expression<int>? attempts,
+    Expression<String>? lastError,
+    Expression<int>? remoteOrderId,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (clientRequestId != null) 'client_request_id': clientRequestId,
+      if (payloadJson != null) 'payload_json': payloadJson,
+      if (status != null) 'status': status,
+      if (attempts != null) 'attempts': attempts,
+      if (lastError != null) 'last_error': lastError,
+      if (remoteOrderId != null) 'remote_order_id': remoteOrderId,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+    });
+  }
+
+  PendingOrdersCompanion copyWith({
+    Value<int>? id,
+    Value<String?>? clientRequestId,
+    Value<String>? payloadJson,
+    Value<String>? status,
+    Value<int>? attempts,
+    Value<String?>? lastError,
+    Value<int?>? remoteOrderId,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+  }) {
+    return PendingOrdersCompanion(
+      id: id ?? this.id,
+      clientRequestId: clientRequestId ?? this.clientRequestId,
+      payloadJson: payloadJson ?? this.payloadJson,
+      status: status ?? this.status,
+      attempts: attempts ?? this.attempts,
+      lastError: lastError ?? this.lastError,
+      remoteOrderId: remoteOrderId ?? this.remoteOrderId,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (clientRequestId.present) {
+      map['client_request_id'] = Variable<String>(clientRequestId.value);
+    }
+    if (payloadJson.present) {
+      map['payload_json'] = Variable<String>(payloadJson.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (attempts.present) {
+      map['attempts'] = Variable<int>(attempts.value);
+    }
+    if (lastError.present) {
+      map['last_error'] = Variable<String>(lastError.value);
+    }
+    if (remoteOrderId.present) {
+      map['remote_order_id'] = Variable<int>(remoteOrderId.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PendingOrdersCompanion(')
+          ..write('id: $id, ')
+          ..write('clientRequestId: $clientRequestId, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('status: $status, ')
+          ..write('attempts: $attempts, ')
+          ..write('lastError: $lastError, ')
+          ..write('remoteOrderId: $remoteOrderId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDb extends GeneratedDatabase {
   _$AppDb(QueryExecutor e) : super(e);
   $AppDbManager get managers => $AppDbManager(this);
@@ -3504,6 +4067,7 @@ abstract class _$AppDb extends GeneratedDatabase {
   late final $ExistenciasTable existencias = $ExistenciasTable(this);
   late final $ProductSucursalStocksTable productSucursalStocks =
       $ProductSucursalStocksTable(this);
+  late final $PendingOrdersTable pendingOrders = $PendingOrdersTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3516,6 +4080,7 @@ abstract class _$AppDb extends GeneratedDatabase {
     bodegas,
     existencias,
     productSucursalStocks,
+    pendingOrders,
   ];
 }
 
@@ -5287,6 +5852,282 @@ typedef $$ProductSucursalStocksTableProcessedTableManager =
       ProductSucursalStockRow,
       PrefetchHooks Function()
     >;
+typedef $$PendingOrdersTableCreateCompanionBuilder =
+    PendingOrdersCompanion Function({
+      Value<int> id,
+      Value<String?> clientRequestId,
+      required String payloadJson,
+      Value<String> status,
+      Value<int> attempts,
+      Value<String?> lastError,
+      Value<int?> remoteOrderId,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+    });
+typedef $$PendingOrdersTableUpdateCompanionBuilder =
+    PendingOrdersCompanion Function({
+      Value<int> id,
+      Value<String?> clientRequestId,
+      Value<String> payloadJson,
+      Value<String> status,
+      Value<int> attempts,
+      Value<String?> lastError,
+      Value<int?> remoteOrderId,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+    });
+
+class $$PendingOrdersTableFilterComposer
+    extends Composer<_$AppDb, $PendingOrdersTable> {
+  $$PendingOrdersTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get clientRequestId => $composableBuilder(
+    column: $table.clientRequestId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get attempts => $composableBuilder(
+    column: $table.attempts,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get remoteOrderId => $composableBuilder(
+    column: $table.remoteOrderId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PendingOrdersTableOrderingComposer
+    extends Composer<_$AppDb, $PendingOrdersTable> {
+  $$PendingOrdersTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get clientRequestId => $composableBuilder(
+    column: $table.clientRequestId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get attempts => $composableBuilder(
+    column: $table.attempts,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get remoteOrderId => $composableBuilder(
+    column: $table.remoteOrderId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PendingOrdersTableAnnotationComposer
+    extends Composer<_$AppDb, $PendingOrdersTable> {
+  $$PendingOrdersTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get clientRequestId => $composableBuilder(
+    column: $table.clientRequestId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<int> get attempts =>
+      $composableBuilder(column: $table.attempts, builder: (column) => column);
+
+  GeneratedColumn<String> get lastError =>
+      $composableBuilder(column: $table.lastError, builder: (column) => column);
+
+  GeneratedColumn<int> get remoteOrderId => $composableBuilder(
+    column: $table.remoteOrderId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$PendingOrdersTableTableManager
+    extends
+        RootTableManager<
+          _$AppDb,
+          $PendingOrdersTable,
+          PendingOrderRow,
+          $$PendingOrdersTableFilterComposer,
+          $$PendingOrdersTableOrderingComposer,
+          $$PendingOrdersTableAnnotationComposer,
+          $$PendingOrdersTableCreateCompanionBuilder,
+          $$PendingOrdersTableUpdateCompanionBuilder,
+          (
+            PendingOrderRow,
+            BaseReferences<_$AppDb, $PendingOrdersTable, PendingOrderRow>,
+          ),
+          PendingOrderRow,
+          PrefetchHooks Function()
+        > {
+  $$PendingOrdersTableTableManager(_$AppDb db, $PendingOrdersTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PendingOrdersTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PendingOrdersTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PendingOrdersTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String?> clientRequestId = const Value.absent(),
+                Value<String> payloadJson = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<int> attempts = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<int?> remoteOrderId = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+              }) => PendingOrdersCompanion(
+                id: id,
+                clientRequestId: clientRequestId,
+                payloadJson: payloadJson,
+                status: status,
+                attempts: attempts,
+                lastError: lastError,
+                remoteOrderId: remoteOrderId,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String?> clientRequestId = const Value.absent(),
+                required String payloadJson,
+                Value<String> status = const Value.absent(),
+                Value<int> attempts = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<int?> remoteOrderId = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+              }) => PendingOrdersCompanion.insert(
+                id: id,
+                clientRequestId: clientRequestId,
+                payloadJson: payloadJson,
+                status: status,
+                attempts: attempts,
+                lastError: lastError,
+                remoteOrderId: remoteOrderId,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PendingOrdersTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDb,
+      $PendingOrdersTable,
+      PendingOrderRow,
+      $$PendingOrdersTableFilterComposer,
+      $$PendingOrdersTableOrderingComposer,
+      $$PendingOrdersTableAnnotationComposer,
+      $$PendingOrdersTableCreateCompanionBuilder,
+      $$PendingOrdersTableUpdateCompanionBuilder,
+      (
+        PendingOrderRow,
+        BaseReferences<_$AppDb, $PendingOrdersTable, PendingOrderRow>,
+      ),
+      PendingOrderRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDbManager {
   final _$AppDb _db;
@@ -5305,4 +6146,6 @@ class $AppDbManager {
       $$ExistenciasTableTableManager(_db, _db.existencias);
   $$ProductSucursalStocksTableTableManager get productSucursalStocks =>
       $$ProductSucursalStocksTableTableManager(_db, _db.productSucursalStocks);
+  $$PendingOrdersTableTableManager get pendingOrders =>
+      $$PendingOrdersTableTableManager(_db, _db.pendingOrders);
 }

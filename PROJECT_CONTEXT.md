@@ -617,3 +617,35 @@ Notas:
   - se mantiene fallback de sesion offline cuando el usuario ya habia iniciado sesion previamente.
 - Validacion:
   - `flutter analyze lib/viewmodels/login_viewmodel.dart` en verde.
+
+### 2026-02-24 (pedido: selector 1X con pantalla de cantidad estilo referencia)
+- Se reemplaza el popup simple de `1X` por una pantalla dedicada de `Cantidad` (flujo tipo POS):
+  - encabezado `Cantidad`,
+  - bloque central con valor grande y controles `- / +`,
+  - teclado numerico (0-9 + borrar),
+  - boton `OK` para confirmar.
+- Se conserva comportamiento operativo acordado:
+  - la cantidad elegida aplica al proximo producto tocado,
+  - despues de usarla una vez, el multiplicador vuelve automaticamente a `1X`.
+- Validacion:
+  - `flutter analyze` en verde.
+
+### 2026-02-24 (pedido: GPS automatico + tipo/serie exclusivos + base offline)
+- Ajustes en `OrderEditorViewModel`:
+  - al abrir pedido nuevo intenta capturar GPS automaticamente y llenar `gps_ubicacion` en segundo plano,
+  - el selector de tipos de documento queda restringido a `VEN-PED` cuando exista (fallback al listado normal si no existe).
+- Guardado offline inicial de pedidos implementado:
+  - nueva cola local `pending_orders` en SQLite (`drift`) para pedidos no enviados,
+  - si no hay internet al guardar pedido nuevo, se guarda en cola local y retorna exito funcional,
+  - se muestra mensaje al usuario: `Pedido guardado offline. Pendiente de sincronizacion.`
+- Sincronizacion automatica de cola:
+  - `OrdersViewModel` sincroniza `pending_orders` al volver internet y al cargar listado online,
+  - estados manejados por cola: `pending`, `sending`, `failed`, `synced`,
+  - contador visual en listado: `pendientes de sincronizar`.
+- Cambios tecnicos de base local:
+  - `AppDb` sube a `schemaVersion = 2`,
+  - nueva tabla `pending_orders` + helpers de encolar/marcar/sincronizar/contar.
+- Validacion tecnica:
+  - regeneracion `drift` con `build_runner` OK,
+  - `flutter analyze` en verde,
+  - `flutter test` en verde.

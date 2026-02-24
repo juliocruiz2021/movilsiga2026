@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../constants/pagination.dart';
+import '../data/app_db.dart';
 import '../models/api_config.dart';
 import '../models/order_summary.dart';
 import '../utils/debug_tools.dart';
@@ -17,6 +18,7 @@ enum OrderDateFilterMode { exactDay, range }
 class OrdersViewModel extends ChangeNotifier {
   SettingsViewModel? _settings;
   AuthViewModel? _auth;
+  AppDb? _db;
 
   final List<OrderSummary> _orders = [];
   String _searchQuery = '';
@@ -29,7 +31,9 @@ class OrdersViewModel extends ChangeNotifier {
   String? _errorMessage;
   int _currentPage = 1;
   int _lastPage = 1;
+  int _pendingSyncCount = 0;
   bool _initialized = false;
+  bool _isSyncingPending = false;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
 
   List<OrderSummary> get orders => List.unmodifiable(_orders);
@@ -42,14 +46,22 @@ class OrdersViewModel extends ChangeNotifier {
   bool get isOffline => _isOffline;
   String? get errorMessage => _errorMessage;
   bool get hasMore => _currentPage < _lastPage;
+  int get pendingSyncCount => _pendingSyncCount;
 
-  void updateDependencies(SettingsViewModel settings, AuthViewModel auth) {
+  void updateDependencies(
+    SettingsViewModel settings,
+    AuthViewModel auth,
+    AppDb db,
+  ) {
     _settings = settings;
     _auth = auth;
+    _db = db;
     debugTrace(
       'ORDERS_VM',
       'Dependencies ready. hasConfig=${settings.apiConfig.isComplete} hasToken=${auth.token.isNotEmpty}',
     );
+    unawaited(_refreshPendingSyncCount());
+    unawaited(db.resetSendingPendingOrders());
     _connectivitySub ??= Connectivity().onConnectivityChanged.listen(
       _handleConnectivity,
     );
@@ -140,6 +152,19 @@ class OrdersViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
+      final config = _currentConfig();
+      final auth = _auth;
+      final online = await _hasConnection();
+      if (auth != null && auth.token.isEmpty) {
+        await auth.reloadFromStorage();
+      }
+      if (config != null &&
+          auth != null &&
+          auth.token.isNotEmpty &&
+          online &&
+          _searchQuery.isEmpty) {
+        await _syncPendingOrders(config, auth);
+      }
       await _loadPage(page: 1, replaceItems: true);
     } catch (e, st) {
       debugTrace('ORDERS_VM', 'loadInitial fatal exception: $e\n$st');
@@ -321,6 +346,87 @@ class OrdersViewModel extends ChangeNotifier {
         results.isEmpty ||
         (results.length == 1 && results.first == ConnectivityResult.none);
     _setOffline(offline);
+    if (!offline) {
+      unawaited(_syncPendingOrdersAndRefresh());
+    }
+  }
+
+  Future<void> _syncPendingOrdersAndRefresh() async {
+    final config = _currentConfig();
+    final auth = _auth;
+    if (config == null || auth == null) return;
+    if (auth.token.isEmpty) {
+      await auth.reloadFromStorage();
+    }
+    if (auth.token.isEmpty) return;
+    await _syncPendingOrders(config, auth);
+    if (!_isLoading && !_isLoadingMore) {
+      await loadInitial();
+    }
+  }
+
+  Future<void> _syncPendingOrders(ApiConfig config, AuthViewModel auth) async {
+    final db = _db;
+    if (db == null || _isSyncingPending) return;
+
+    _isSyncingPending = true;
+    try {
+      final pending = await db.fetchPendingOrders(limit: 100);
+      if (pending.isEmpty) {
+        await _refreshPendingSyncCount();
+        return;
+      }
+
+      for (final row in pending) {
+        await db.markPendingOrderSending(row.id);
+        try {
+          final raw = jsonDecode(row.payloadJson);
+          if (raw is! Map) {
+            await db.markPendingOrderFailed(row.id, 'Payload inválido.');
+            continue;
+          }
+
+          final payload = raw.map(
+            (key, value) => MapEntry(key.toString(), value),
+          );
+          final uri = config.buildUri('/${config.companyCode}/ventas');
+          final response = await http
+              .post(
+                uri,
+                headers: _authHeaders(auth),
+                body: jsonEncode(payload),
+              )
+              .timeout(const Duration(seconds: 8));
+
+          if (response.statusCode >= 200 && response.statusCode < 300) {
+            final data = _decodeJson(response.body);
+            final venta = data['venta'];
+            final remoteId = venta is Map ? _toInt(venta['id']) : null;
+            await db.markPendingOrderSynced(row.id, remoteOrderId: remoteId);
+            continue;
+          }
+
+          await db.markPendingOrderFailed(
+            row.id,
+            _extractErrorMessage(response.body),
+          );
+        } catch (e) {
+          await db.markPendingOrderFailed(row.id, 'Error de red: $e');
+        }
+      }
+    } finally {
+      _isSyncingPending = false;
+      await _refreshPendingSyncCount();
+    }
+  }
+
+  Future<void> _refreshPendingSyncCount() async {
+    final db = _db;
+    if (db == null) return;
+    final count = await db.countUnsyncedPendingOrders();
+    if (_pendingSyncCount == count) return;
+    _pendingSyncCount = count;
+    notifyListeners();
   }
 
   Map<String, String> _authHeaders(AuthViewModel auth) {

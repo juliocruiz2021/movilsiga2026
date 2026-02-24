@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../data/app_db.dart';
 import '../models/product.dart';
 import '../theme/app_theme.dart';
 import '../viewmodels/auth_viewmodel.dart';
@@ -15,11 +16,13 @@ class OrderFormView extends StatefulWidget {
     super.key,
     required this.settings,
     required this.auth,
+    required this.db,
     this.orderId,
   });
 
   final SettingsViewModel settings;
   final AuthViewModel auth;
+  final AppDb db;
   final int? orderId;
 
   @override
@@ -28,8 +31,6 @@ class OrderFormView extends StatefulWidget {
 
 class _OrderFormViewState extends State<OrderFormView>
     with TickerProviderStateMixin {
-  static const List<int> _qtyMultiplierOptions = [1, 2, 3, 5, 10];
-
   late final OrderEditorViewModel _vm;
   late final ScrollController _scrollController;
   final GlobalKey _summaryBarKey = GlobalKey();
@@ -48,7 +49,7 @@ class _OrderFormViewState extends State<OrderFormView>
   void initState() {
     super.initState();
     _vm = OrderEditorViewModel()
-      ..updateDependencies(widget.settings, widget.auth)
+      ..updateDependencies(widget.settings, widget.auth, widget.db)
       ..initialize(orderId: widget.orderId);
     _scrollController = ScrollController()..addListener(_handleProductScroll);
   }
@@ -227,24 +228,9 @@ class _OrderFormViewState extends State<OrderFormView>
               color: !_isGrid ? palette.primary : palette.textMuted,
             ),
           ),
-          PopupMenuButton<int>(
-            tooltip: 'Multiplicador',
-            onSelected: _vm.setTapMultiplier,
-            itemBuilder: (context) => _qtyMultiplierOptions
-                .map(
-                  (value) => PopupMenuItem<int>(
-                    value: value,
-                    child: Text(
-                      '${value}X',
-                      style: TextStyle(
-                        fontWeight: value == _vm.tapMultiplier
-                            ? FontWeight.w800
-                            : FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                )
-                .toList(),
+          InkWell(
+            borderRadius: BorderRadius.circular(6),
+            onTap: _openQuantityPicker,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
@@ -683,6 +669,18 @@ class _OrderFormViewState extends State<OrderFormView>
     _vm.selectClient(selected);
   }
 
+  Future<void> _openQuantityPicker() async {
+    final selected = await Navigator.of(context).push<int>(
+      MaterialPageRoute(
+        builder: (_) => _OrderQuantityPickerView(
+          initialValue: _vm.tapMultiplier,
+        ),
+      ),
+    );
+    if (!mounted || selected == null) return;
+    _vm.setTapMultiplier(selected);
+  }
+
   Future<void> _openHeaderAndContinue() async {
     final messenger = ScaffoldMessenger.of(context);
 
@@ -740,7 +738,13 @@ class _OrderFormViewState extends State<OrderFormView>
 
     if (ok) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('Pedido guardado correctamente.')),
+        SnackBar(
+          content: Text(
+            _vm.lastSavedOffline
+                ? 'Pedido guardado offline. Pendiente de sincronización.'
+                : 'Pedido guardado correctamente.',
+          ),
+        ),
       );
       navigator.pop(true);
       return;
@@ -954,6 +958,303 @@ class _OrderClientPickerViewState extends State<_OrderClientPickerView> {
       ),
     );
   }
+}
+
+class _OrderQuantityPickerView extends StatefulWidget {
+  const _OrderQuantityPickerView({required this.initialValue});
+
+  final int initialValue;
+
+  @override
+  State<_OrderQuantityPickerView> createState() => _OrderQuantityPickerViewState();
+}
+
+class _OrderQuantityPickerViewState extends State<_OrderQuantityPickerView> {
+  late int _value;
+  bool _replaceOnNextDigit = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _value = widget.initialValue < 1 ? 1 : widget.initialValue;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final units = _value == 1 ? 'unidad' : 'unidades';
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Cantidad')),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: Container(
+                width: double.infinity,
+                color: palette.surfaceSoft.withValues(alpha: 0.6),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 34),
+                    Text(
+                      'Pedir $_value $units del próximo item',
+                      style: TextStyle(
+                        color: palette.textMuted,
+                        fontSize: 20,
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                      child: Row(
+                        children: [
+                          _QuantityControlButton(
+                            icon: Icons.remove,
+                            onTap: _decrement,
+                          ),
+                          Expanded(
+                            child: Center(
+                              child: Text(
+                                '$_value',
+                                style: TextStyle(
+                                  color: palette.primary,
+                                  fontSize: 62,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                          _QuantityControlButton(
+                            icon: Icons.add,
+                            onTap: _increment,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            _QuantityKeyboard(
+              onDigit: _appendDigit,
+              onBackspace: _backspace,
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: SizedBox(
+                width: double.infinity,
+                height: 58,
+                child: FilledButton(
+                  onPressed: () => Navigator.of(context).pop(_value),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: palette.primary,
+                    foregroundColor: palette.onPrimary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    textStyle: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 18,
+                    ),
+                  ),
+                  child: const Text('OK'),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _increment() {
+    setState(() {
+      _value += 1;
+      _replaceOnNextDigit = false;
+    });
+  }
+
+  void _decrement() {
+    setState(() {
+      _value = _value <= 1 ? 1 : _value - 1;
+      _replaceOnNextDigit = false;
+    });
+  }
+
+  void _appendDigit(int digit) {
+    if (digit < 0 || digit > 9) return;
+    final current = _value.toString();
+    final nextText = _replaceOnNextDigit ? '$digit' : '$current$digit';
+    final parsed = int.tryParse(nextText);
+    if (parsed == null) return;
+    setState(() {
+      _value = parsed < 1 ? 1 : parsed.clamp(1, 9999);
+      _replaceOnNextDigit = false;
+    });
+  }
+
+  void _backspace() {
+    final text = _value.toString();
+    if (text.length <= 1) {
+      setState(() {
+        _value = 1;
+        _replaceOnNextDigit = true;
+      });
+      return;
+    }
+
+    final parsed = int.tryParse(text.substring(0, text.length - 1));
+    setState(() {
+      _value = (parsed ?? 1).clamp(1, 9999);
+      _replaceOnNextDigit = false;
+    });
+  }
+}
+
+class _QuantityControlButton extends StatelessWidget {
+  const _QuantityControlButton({required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return IconButton(
+      iconSize: 56,
+      color: palette.textMuted,
+      onPressed: onTap,
+      icon: Icon(icon),
+    );
+  }
+}
+
+class _QuantityKeyboard extends StatelessWidget {
+  const _QuantityKeyboard({required this.onDigit, required this.onBackspace});
+
+  final ValueChanged<int> onDigit;
+  final VoidCallback onBackspace;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+
+    return Container(
+      color: palette.surface,
+      child: Column(
+        children: [
+          _QuantityKeyboardRow(
+            keys: [
+              _QuantityKeyData.text('1', onTap: () => onDigit(1)),
+              _QuantityKeyData.text('2', onTap: () => onDigit(2)),
+              _QuantityKeyData.text('3', onTap: () => onDigit(3)),
+            ],
+          ),
+          _QuantityKeyboardRow(
+            keys: [
+              _QuantityKeyData.text('4', onTap: () => onDigit(4)),
+              _QuantityKeyData.text('5', onTap: () => onDigit(5)),
+              _QuantityKeyData.text('6', onTap: () => onDigit(6)),
+            ],
+          ),
+          _QuantityKeyboardRow(
+            keys: [
+              _QuantityKeyData.text('7', onTap: () => onDigit(7)),
+              _QuantityKeyData.text('8', onTap: () => onDigit(8)),
+              _QuantityKeyData.text('9', onTap: () => onDigit(9)),
+            ],
+          ),
+          _QuantityKeyboardRow(
+            keys: [
+              const _QuantityKeyData.empty(),
+              _QuantityKeyData.text('0', onTap: () => onDigit(0)),
+              _QuantityKeyData.icon(
+                icon: Icons.backspace_outlined,
+                onTap: onBackspace,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuantityKeyboardRow extends StatelessWidget {
+  const _QuantityKeyboardRow({required this.keys});
+
+  final List<_QuantityKeyData> keys;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: palette.surfaceSoft)),
+      ),
+      height: 76,
+      child: Row(
+        children: keys
+            .map(
+              (key) => Expanded(
+                child: _QuantityKeyboardKey(data: key),
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+}
+
+class _QuantityKeyboardKey extends StatelessWidget {
+  const _QuantityKeyboardKey({required this.data});
+
+  final _QuantityKeyData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    if (data.isEmpty) {
+      return const SizedBox.expand();
+    }
+
+    return InkWell(
+      onTap: data.onTap,
+      child: Center(
+        child: data.icon != null
+            ? Icon(data.icon, color: palette.textMuted, size: 34)
+            : Text(
+                data.label ?? '',
+                style: TextStyle(
+                  color: palette.textMuted,
+                  fontSize: 44 / 1.9,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+class _QuantityKeyData {
+  const _QuantityKeyData.empty()
+      : isEmpty = true,
+        label = null,
+        icon = null,
+        onTap = null;
+
+  const _QuantityKeyData.text(this.label, {required this.onTap})
+      : isEmpty = false,
+        icon = null;
+
+  const _QuantityKeyData.icon({required this.icon, required this.onTap})
+      : isEmpty = false,
+        label = null;
+
+  final bool isEmpty;
+  final String? label;
+  final IconData? icon;
+  final VoidCallback? onTap;
 }
 
 class _FlyingDot extends StatelessWidget {

@@ -1,11 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:uuid/uuid.dart';
 
 import '../constants/pagination.dart';
+import '../data/app_db.dart';
 import '../models/api_config.dart';
 import '../models/product.dart';
 import '../utils/debug_tools.dart';
@@ -15,6 +18,7 @@ import 'settings_viewmodel.dart';
 class OrderEditorViewModel extends ChangeNotifier {
   SettingsViewModel? _settings;
   AuthViewModel? _auth;
+  AppDb? _db;
 
   int? _orderId;
   bool _isLoadingInitial = false;
@@ -67,6 +71,7 @@ class OrderEditorViewModel extends ChangeNotifier {
   final Map<int, OrderLineDraft> _lineas = {};
   int _summaryPulse = 0;
   int _tapMultiplier = 1;
+  bool _lastSavedOffline = false;
 
   int? get orderId => _orderId;
   bool get isLoadingInitial => _isLoadingInitial;
@@ -126,10 +131,16 @@ class OrderEditorViewModel extends ChangeNotifier {
       _lineas.values.fold(0, (sum, line) => sum + line.subtotal);
   int get summaryPulse => _summaryPulse;
   int get tapMultiplier => _tapMultiplier;
+  bool get lastSavedOffline => _lastSavedOffline;
 
-  void updateDependencies(SettingsViewModel settings, AuthViewModel auth) {
+  void updateDependencies(
+    SettingsViewModel settings,
+    AuthViewModel auth,
+    AppDb db,
+  ) {
     _settings = settings;
     _auth = auth;
+    _db = db;
   }
 
   Future<void> initialize({int? orderId}) async {
@@ -159,6 +170,10 @@ class OrderEditorViewModel extends ChangeNotifier {
 
       if (_products.isEmpty) {
         await loadProducts(reset: true);
+      }
+
+      if (_orderId == null && _gpsUbicacion.trim().isEmpty) {
+        unawaited(captureGpsFromDevice());
       }
     } catch (e, st) {
       debugTrace('ORDER_EDITOR_VM', 'initialize exception: $e\n$st');
@@ -583,6 +598,7 @@ class OrderEditorViewModel extends ChangeNotifier {
 
   Future<bool> saveOrder() async {
     _saveErrorMessage = null;
+    _lastSavedOffline = false;
 
     if (_noPidio && _gpsUbicacion.trim().isEmpty) {
       await captureGpsFromDevice();
@@ -596,9 +612,21 @@ class OrderEditorViewModel extends ChangeNotifier {
     }
 
     final config = _currentConfig();
-    final auth = await _readyAuth();
-    if (config == null || auth == null) {
+    if (config == null) {
       _saveErrorMessage = 'Configura la API y la sesión antes de guardar.';
+      notifyListeners();
+      return false;
+    }
+
+    final payload = _buildSavePayload();
+    final hasConnection = await _hasConnection();
+    if (!hasConnection) {
+      return _queueOrderOffline(payload);
+    }
+
+    final auth = await _readyAuth();
+    if (auth == null) {
+      _saveErrorMessage = 'No hay sesión activa para sincronizar pedidos.';
       notifyListeners();
       return false;
     }
@@ -607,7 +635,6 @@ class OrderEditorViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final payload = _buildSavePayload();
       final path = _orderId == null
           ? '/${config.companyCode}/ventas'
           : '/${config.companyCode}/ventas/${_orderId!}';
@@ -635,12 +662,47 @@ class OrderEditorViewModel extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (_) {
-      _saveErrorMessage = 'No se pudo guardar el pedido.';
-      notifyListeners();
-      return false;
+      return _queueOrderOffline(payload);
     } finally {
       _isSaving = false;
       notifyListeners();
+    }
+  }
+
+  Future<bool> _queueOrderOffline(Map<String, dynamic> payload) async {
+    if (_orderId != null) {
+      _saveErrorMessage =
+          'No se puede editar un pedido existente sin conexión.';
+      notifyListeners();
+      return false;
+    }
+
+    final db = _db;
+    if (db == null) {
+      _saveErrorMessage = 'No hay base local para guardar pendiente.';
+      notifyListeners();
+      return false;
+    }
+
+    final clientRequestId =
+        payload['client_request_id']?.toString().trim().isNotEmpty == true
+        ? payload['client_request_id'].toString()
+        : const Uuid().v4();
+    payload['client_request_id'] = clientRequestId;
+
+    try {
+      await db.enqueuePendingOrder(
+        clientRequestId: clientRequestId,
+        payloadJson: jsonEncode(payload),
+      );
+      _lastSavedOffline = true;
+      _saveErrorMessage = null;
+      notifyListeners();
+      return true;
+    } catch (_) {
+      _saveErrorMessage = 'No se pudo guardar el pedido en modo offline.';
+      notifyListeners();
+      return false;
     }
   }
 
@@ -920,11 +982,23 @@ class OrderEditorViewModel extends ChangeNotifier {
       params: const {'module': 'ventas'},
     );
 
+    final parsed = items.map(OrderDocumentTypeOption.fromJson).toList();
+    final pedidoOnly = parsed
+        .where((item) => item.codigo.trim().toUpperCase() == 'VEN-PED')
+        .toList();
+
     _tiposDocumento
       ..clear()
-      ..addAll(items.map(OrderDocumentTypeOption.fromJson));
+      ..addAll(pedidoOnly.isEmpty ? parsed : pedidoOnly);
 
-    if (_selectedTipoDocumentoId == null && _tiposDocumento.isNotEmpty) {
+    if (_tiposDocumento.isEmpty) {
+      _selectedTipoDocumentoId = null;
+      notifyListeners();
+      return;
+    }
+
+    if (_selectedTipoDocumentoId == null ||
+        !_tiposDocumento.any((item) => item.id == _selectedTipoDocumentoId)) {
       _selectedTipoDocumentoId = _tiposDocumento.first.id;
     }
   }
@@ -1136,6 +1210,15 @@ class OrderEditorViewModel extends ChangeNotifier {
     }
     if (auth.token.isEmpty) return null;
     return auth;
+  }
+
+  Future<bool> _hasConnection() async {
+    try {
+      final results = await Connectivity().checkConnectivity();
+      return results.any((result) => result != ConnectivityResult.none);
+    } catch (_) {
+      return false;
+    }
   }
 
   Map<String, String> _authHeaders(AuthViewModel auth) {

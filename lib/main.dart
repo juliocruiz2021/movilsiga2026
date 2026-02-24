@@ -77,14 +77,15 @@ class App extends StatelessWidget {
           update: (_, settings, auth, vm) =>
               (vm ?? ClientsViewModel())..updateDependencies(settings, auth),
         ),
-        ChangeNotifierProxyProvider2<
+        ChangeNotifierProxyProvider3<
           SettingsViewModel,
           AuthViewModel,
+          AppDb,
           OrdersViewModel
         >(
           create: (_) => OrdersViewModel(),
-          update: (_, settings, auth, vm) =>
-              (vm ?? OrdersViewModel())..updateDependencies(settings, auth),
+          update: (_, settings, auth, db, vm) =>
+              (vm ?? OrdersViewModel())..updateDependencies(settings, auth, db),
         ),
         ChangeNotifierProxyProvider3<
           SettingsViewModel,

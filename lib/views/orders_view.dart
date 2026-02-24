@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../data/app_db.dart';
 import '../models/order_summary.dart';
 import '../theme/app_theme.dart';
 import '../viewmodels/auth_viewmodel.dart';
@@ -113,7 +114,10 @@ class _OrdersViewState extends State<OrdersView> {
               child: _buildBody(context, vm, canUpdateOrders: canUpdateOrders),
             ),
             const SizedBox(height: 8),
-            _OrdersCounter(count: vm.orders.length),
+            _OrdersCounter(
+              count: vm.orders.length,
+              pendingSyncCount: vm.pendingSyncCount,
+            ),
           ],
         );
       },
@@ -218,6 +222,7 @@ class _OrdersViewState extends State<OrdersView> {
         builder: (_) => OrderFormView(
           settings: context.read<SettingsViewModel>(),
           auth: context.read<AuthViewModel>(),
+          db: context.read<AppDb>(),
         ),
       ),
     );
@@ -232,6 +237,7 @@ class _OrdersViewState extends State<OrdersView> {
         builder: (_) => OrderFormView(
           settings: context.read<SettingsViewModel>(),
           auth: context.read<AuthViewModel>(),
+          db: context.read<AppDb>(),
           orderId: order.id,
         ),
       ),
@@ -538,9 +544,10 @@ class _OrderListRow extends StatelessWidget {
 }
 
 class _OrdersCounter extends StatelessWidget {
-  const _OrdersCounter({required this.count});
+  const _OrdersCounter({required this.count, required this.pendingSyncCount});
 
   final int count;
+  final int pendingSyncCount;
 
   @override
   Widget build(BuildContext context) {
@@ -561,7 +568,9 @@ class _OrdersCounter extends StatelessWidget {
         ],
       ),
       child: Text(
-        '$count pedidos mostrados',
+        pendingSyncCount > 0
+            ? '$count pedidos mostrados • $pendingSyncCount pendientes de sincronizar'
+            : '$count pedidos mostrados',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: theme.textTheme.bodySmall?.copyWith(

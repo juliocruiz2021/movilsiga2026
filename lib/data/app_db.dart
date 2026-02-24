@@ -108,6 +108,19 @@ class ProductSucursalStocks extends Table {
   Set<Column> get primaryKey => {productId, sucursalId};
 }
 
+@DataClassName('PendingOrderRow')
+class PendingOrders extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get clientRequestId => text().nullable().unique()();
+  TextColumn get payloadJson => text()();
+  TextColumn get status => text().withDefault(const Constant('pending'))();
+  IntColumn get attempts => integer().withDefault(const Constant(0))();
+  TextColumn get lastError => text().nullable()();
+  IntColumn get remoteOrderId => integer().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+}
+
 @DriftDatabase(
   tables: [
     Products,
@@ -117,13 +130,26 @@ class ProductSucursalStocks extends Table {
     Bodegas,
     Existencias,
     ProductSucursalStocks,
+    PendingOrders,
   ],
 )
 class AppDb extends _$AppDb {
   AppDb() : super(_openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (m) async {
+      await m.createAll();
+    },
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await m.createTable(pendingOrders);
+      }
+    },
+  );
 
   static QueryExecutor _openConnection() {
     return driftDatabase(
@@ -238,6 +264,86 @@ class AppDb extends _$AppDb {
     return (select(productSucursalStocks)
           ..where((tbl) => tbl.productId.equals(productId)))
         .get();
+  }
+
+  Future<int> enqueuePendingOrder({
+    String? clientRequestId,
+    required String payloadJson,
+  }) {
+    final now = DateTime.now();
+    return into(pendingOrders).insert(
+      PendingOrdersCompanion.insert(
+        clientRequestId: Value(clientRequestId),
+        payloadJson: payloadJson,
+        status: const Value('pending'),
+        attempts: const Value(0),
+        createdAt: Value(now),
+        updatedAt: Value(now),
+      ),
+    );
+  }
+
+  Future<List<PendingOrderRow>> fetchPendingOrders({int limit = 100}) {
+    return (select(pendingOrders)
+          ..where((tbl) => tbl.status.isNotValue('synced'))
+          ..orderBy([(tbl) => OrderingTerm.asc(tbl.id)])
+          ..limit(limit))
+        .get();
+  }
+
+  Future<void> markPendingOrderSending(int id) async {
+    final row = await (select(pendingOrders)..where((t) => t.id.equals(id)))
+        .getSingleOrNull();
+    if (row == null) return;
+
+    await (update(pendingOrders)..where((t) => t.id.equals(id))).write(
+      PendingOrdersCompanion(
+        status: const Value('sending'),
+        attempts: Value(row.attempts + 1),
+        lastError: const Value(null),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  Future<void> markPendingOrderFailed(int id, String error) {
+    return (update(pendingOrders)..where((t) => t.id.equals(id))).write(
+      PendingOrdersCompanion(
+        status: const Value('failed'),
+        lastError: Value(error),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  Future<void> markPendingOrderSynced(int id, {int? remoteOrderId}) {
+    return (update(pendingOrders)..where((t) => t.id.equals(id))).write(
+      PendingOrdersCompanion(
+        status: const Value('synced'),
+        remoteOrderId: Value(remoteOrderId),
+        lastError: const Value(null),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  Future<void> resetSendingPendingOrders() {
+    return (update(pendingOrders)..where((t) => t.status.equals('sending')))
+        .write(
+          PendingOrdersCompanion(
+            status: const Value('pending'),
+            updatedAt: Value(DateTime.now()),
+          ),
+        );
+  }
+
+  Future<int> countUnsyncedPendingOrders() async {
+    final countExpr = pendingOrders.id.count();
+    final row = await (selectOnly(pendingOrders)
+          ..addColumns([countExpr])
+          ..where(pendingOrders.status.isNotValue('synced')))
+        .getSingle();
+    return row.read(countExpr) ?? 0;
   }
 
   Future<int> countProducts() async {
