@@ -649,3 +649,22 @@ Notas:
   - regeneracion `drift` con `build_runner` OK,
   - `flutter analyze` en verde,
   - `flutter test` en verde.
+
+### 2026-02-25 (pedidos: defaults por usuario + encabezado simplificado)
+- Se integra soporte de defaults de usuario para flujo de pedidos a partir de `user.perfil` devuelto por login:
+  - `sucursal_id`
+  - `punto_venta_id`
+  - `centro_costo_id`
+  - `bodega_id`
+  - `vendedor_id`
+- `AuthViewModel` ahora persiste esos defaults en `flutter_secure_storage` y los limpia en logout.
+- `LoginViewModel` captura `user.perfil` al autenticar y lo guarda en sesión segura junto con token/rol.
+- `OrderEditorViewModel` aplica defaults automáticamente al crear pedido nuevo:
+  - usa IDs por defecto del usuario como primera selección,
+  - valida contra catálogos cargados y hace fallback seguro al primer registro disponible cuando no hay match.
+- `OrderHeaderView` se simplifica según requerimiento:
+  - ya no muestra dropdowns de `sucursal`, `punto de venta`, `bodega`, `vendedor`, `centro de costo`, ni `tipo documento`,
+  - mantiene visible `serie` (y `número manual` cuando aplica), fecha, GPS, no pidió, motivo y nota.
+- Mensajería de validación en encabezado actualizada para indicar ausencia de parámetros por defecto cuando falten datos base.
+- Validación técnica:
+  - `flutter analyze` sobre archivos modificados en verde.

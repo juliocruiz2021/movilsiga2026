@@ -59,6 +59,11 @@ class OrderEditorViewModel extends ChangeNotifier {
   int? _selectedSerieId;
   int? _selectedMotivoNoPedidoId;
   int? _selectedProductCategoryId;
+  int? _defaultSucursalId;
+  int? _defaultPuntoVentaId;
+  int? _defaultBodegaId;
+  int? _defaultVendedorId;
+  int? _defaultCentroCostoId;
 
   bool _serieAutomatica = true;
   int? _numeroManual;
@@ -152,6 +157,8 @@ class OrderEditorViewModel extends ChangeNotifier {
     try {
       if (orderId != null) {
         await _loadOrder(orderId);
+      } else {
+        _applyAuthDefaultsForNewOrder();
       }
 
       await Future.wait([
@@ -888,9 +895,11 @@ class OrderEditorViewModel extends ChangeNotifier {
       ..clear()
       ..addAll(items.map(OrderLookupOption.fromJson));
 
-    if (_selectedSucursalId == null && _sucursales.isNotEmpty) {
-      _selectedSucursalId = _sucursales.first.id;
-    }
+    _selectedSucursalId = _coerceSelection(
+      current: _selectedSucursalId,
+      options: _sucursales,
+      preferred: _orderId == null ? _defaultSucursalId : null,
+    );
   }
 
   Future<void> _loadPuntosVenta() async {
@@ -914,7 +923,11 @@ class OrderEditorViewModel extends ChangeNotifier {
     if (_puntosVenta.any((item) => item.id == _selectedPuntoVentaId)) {
       return;
     }
-    _selectedPuntoVentaId = _puntosVenta.isEmpty ? null : _puntosVenta.first.id;
+    _selectedPuntoVentaId = _coerceSelection(
+      current: _selectedPuntoVentaId,
+      options: _puntosVenta,
+      preferred: _orderId == null ? _defaultPuntoVentaId : null,
+    );
     notifyListeners();
   }
 
@@ -939,7 +952,11 @@ class OrderEditorViewModel extends ChangeNotifier {
     if (_bodegas.any((item) => item.id == _selectedBodegaId)) {
       return;
     }
-    _selectedBodegaId = _bodegas.isEmpty ? null : _bodegas.first.id;
+    _selectedBodegaId = _coerceSelection(
+      current: _selectedBodegaId,
+      options: _bodegas,
+      preferred: _orderId == null ? _defaultBodegaId : null,
+    );
     notifyListeners();
   }
 
@@ -954,9 +971,11 @@ class OrderEditorViewModel extends ChangeNotifier {
       ..clear()
       ..addAll(items.map(OrderLookupOption.fromJson));
 
-    if (_selectedVendedorId == null && _vendedores.isNotEmpty) {
-      _selectedVendedorId = _vendedores.first.id;
-    }
+    _selectedVendedorId = _coerceSelection(
+      current: _selectedVendedorId,
+      options: _vendedores,
+      preferred: _orderId == null ? _defaultVendedorId : null,
+    );
   }
 
   Future<void> _loadCentrosCosto() async {
@@ -970,9 +989,11 @@ class OrderEditorViewModel extends ChangeNotifier {
       ..clear()
       ..addAll(items.map(OrderLookupOption.fromJson));
 
-    if (_selectedCentroCostoId == null && _centrosCosto.isNotEmpty) {
-      _selectedCentroCostoId = _centrosCosto.first.id;
-    }
+    _selectedCentroCostoId = _coerceSelection(
+      current: _selectedCentroCostoId,
+      options: _centrosCosto,
+      preferred: _orderId == null ? _defaultCentroCostoId : null,
+    );
   }
 
   Future<void> _loadTiposDocumento() async {
@@ -1047,10 +1068,7 @@ class OrderEditorViewModel extends ChangeNotifier {
       items = await _fetchAllPages(
         path: '/series',
         keys: const ['series'],
-        params: {
-          'document_type_id': selectedType,
-          'anio': selectedYear,
-        },
+        params: {'document_type_id': selectedType, 'anio': selectedYear},
       );
     }
 
@@ -1093,8 +1111,8 @@ class OrderEditorViewModel extends ChangeNotifier {
   bool _seriesMatchesHeaderSelection(OrderSeriesOption item) {
     final sucursalMatch =
         item.sucursalId == null || item.sucursalId == _selectedSucursalId;
-    final puntoVentaMatch = item.puntoVentaId == null ||
-        item.puntoVentaId == _selectedPuntoVentaId;
+    final puntoVentaMatch =
+        item.puntoVentaId == null || item.puntoVentaId == _selectedPuntoVentaId;
 
     // Pedidos/ventas no deben usar series amarradas a una bodega.
     final validForVentas = item.bodegaId == null;
@@ -1186,14 +1204,57 @@ class OrderEditorViewModel extends ChangeNotifier {
   }
 
   void _ensureBaseSelections() {
-    _selectedSucursalId ??= _sucursales.isEmpty ? null : _sucursales.first.id;
-    _selectedVendedorId ??= _vendedores.isEmpty ? null : _vendedores.first.id;
-    _selectedCentroCostoId ??= _centrosCosto.isEmpty
-        ? null
-        : _centrosCosto.first.id;
-    _selectedTipoDocumentoId ??= _tiposDocumento.isEmpty
-        ? null
-        : _tiposDocumento.first.id;
+    _selectedSucursalId = _coerceSelection(
+      current: _selectedSucursalId,
+      options: _sucursales,
+      preferred: _orderId == null ? _defaultSucursalId : null,
+    );
+    _selectedVendedorId = _coerceSelection(
+      current: _selectedVendedorId,
+      options: _vendedores,
+      preferred: _orderId == null ? _defaultVendedorId : null,
+    );
+    _selectedCentroCostoId = _coerceSelection(
+      current: _selectedCentroCostoId,
+      options: _centrosCosto,
+      preferred: _orderId == null ? _defaultCentroCostoId : null,
+    );
+    _selectedTipoDocumentoId = _coerceSelection(
+      current: _selectedTipoDocumentoId,
+      options: _tiposDocumento,
+    );
+  }
+
+  void _applyAuthDefaultsForNewOrder() {
+    final auth = _auth;
+    if (_orderId != null || auth == null) return;
+
+    _defaultSucursalId = auth.defaultSucursalId;
+    _defaultPuntoVentaId = auth.defaultPuntoVentaId;
+    _defaultBodegaId = auth.defaultBodegaId;
+    _defaultVendedorId = auth.defaultVendedorId;
+    _defaultCentroCostoId = auth.defaultCentroCostoId;
+
+    _selectedSucursalId ??= _defaultSucursalId;
+    _selectedPuntoVentaId ??= _defaultPuntoVentaId;
+    _selectedBodegaId ??= _defaultBodegaId;
+    _selectedVendedorId ??= _defaultVendedorId;
+    _selectedCentroCostoId ??= _defaultCentroCostoId;
+  }
+
+  int? _coerceSelection<T extends OrderLookupOption>({
+    required int? current,
+    required List<T> options,
+    int? preferred,
+  }) {
+    if (options.isEmpty) return null;
+    if (current != null && options.any((item) => item.id == current)) {
+      return current;
+    }
+    if (preferred != null && options.any((item) => item.id == preferred)) {
+      return preferred;
+    }
+    return options.first.id;
   }
 
   ApiConfig? _currentConfig() {

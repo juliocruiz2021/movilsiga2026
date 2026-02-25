@@ -135,10 +135,17 @@ class LoginViewModel extends ChangeNotifier {
         final token = data['token'] as String?;
         final tokenType = data['token_type'] as String?;
         final user = data['user'];
-        final role = user is Map ? user['role']?.toString() : null;
-        final userId = user is Map ? user['id']?.toString() : null;
-        final userName = user is Map ? user['name']?.toString() : null;
-        final userEmail = user is Map ? user['email']?.toString() : null;
+        final userMap = user is Map
+            ? user.map((k, v) => MapEntry(k.toString(), v))
+            : null;
+        final role = userMap?['role']?.toString();
+        final userId = userMap?['id']?.toString();
+        final userName = userMap?['name']?.toString();
+        final userEmail = userMap?['email']?.toString();
+        final perfil = userMap?['perfil'];
+        final perfilMap = perfil is Map
+            ? perfil.map((k, v) => MapEntry(k.toString(), v))
+            : null;
         if (token != null && token.isNotEmpty) {
           await _auth?.saveToken(token: token, tokenType: tokenType);
         }
@@ -151,6 +158,7 @@ class LoginViewModel extends ChangeNotifier {
           userEmail: userEmail,
           loginAt: DateTime.now(),
         );
+        await _auth?.saveUserPerfilDefaults(perfilMap);
         _loginSuccess = true;
         notifyListeners();
         await _saveLastLogin();

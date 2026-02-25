@@ -83,83 +83,6 @@ class _OrderHeaderViewState extends State<OrderHeaderView> {
                     ),
                     const SizedBox(height: 10),
                     _buildDropdown(
-                      label: 'Sucursal',
-                      value: _safeSelected(
-                        _vm.selectedSucursalId,
-                        _vm.sucursales,
-                      ),
-                      items: _vm.sucursales,
-                      onChanged: (value) {
-                        if (value == null) return;
-                        _vm.setSucursal(value);
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    _buildDropdown(
-                      label: 'Punto de venta',
-                      value: _safeSelected(
-                        _vm.selectedPuntoVentaId,
-                        _vm.puntosVenta,
-                      ),
-                      items: _vm.puntosVenta,
-                      onChanged: (value) {
-                        if (value == null) return;
-                        _vm.setPuntoVenta(value);
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    _buildDropdown(
-                      label: 'Bodega',
-                      value: _safeSelected(_vm.selectedBodegaId, _vm.bodegas),
-                      items: _vm.bodegas,
-                      onChanged: _vm.noPidio
-                          ? null
-                          : (value) {
-                              if (value == null) return;
-                              _vm.setBodega(value);
-                            },
-                    ),
-                    const SizedBox(height: 10),
-                    _buildDropdown(
-                      label: 'Vendedor',
-                      value: _safeSelected(
-                        _vm.selectedVendedorId,
-                        _vm.vendedores,
-                      ),
-                      items: _vm.vendedores,
-                      onChanged: (value) {
-                        if (value == null) return;
-                        _vm.setVendedor(value);
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    _buildDropdown(
-                      label: 'Centro de costo',
-                      value: _safeSelected(
-                        _vm.selectedCentroCostoId,
-                        _vm.centrosCosto,
-                      ),
-                      items: _vm.centrosCosto,
-                      onChanged: (value) {
-                        if (value == null) return;
-                        _vm.setCentroCosto(value);
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    _buildDropdown(
-                      label: 'Tipo documento',
-                      value: _safeSelected(
-                        _vm.selectedTipoDocumentoId,
-                        _vm.tiposDocumento,
-                      ),
-                      items: _vm.tiposDocumento,
-                      onChanged: (value) {
-                        if (value == null) return;
-                        _vm.setTipoDocumento(value);
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    _buildDropdown(
                       label: 'Serie',
                       value: _safeSelected(_vm.selectedSerieId, _vm.series),
                       items: _vm.series,
@@ -451,33 +374,17 @@ class _OrderHeaderViewState extends State<OrderHeaderView> {
       );
       return;
     }
-    if (_vm.selectedSucursalId == null) {
+    if (_vm.selectedSucursalId == null ||
+        _vm.selectedPuntoVentaId == null ||
+        _vm.selectedVendedorId == null ||
+        _vm.selectedCentroCostoId == null ||
+        _vm.selectedTipoDocumentoId == null) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('Selecciona una sucursal.')),
-      );
-      return;
-    }
-    if (_vm.selectedPuntoVentaId == null) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Selecciona un punto de venta.')),
-      );
-      return;
-    }
-    if (_vm.selectedVendedorId == null) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Selecciona un vendedor.')),
-      );
-      return;
-    }
-    if (_vm.selectedCentroCostoId == null) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Selecciona un centro de costo.')),
-      );
-      return;
-    }
-    if (_vm.selectedTipoDocumentoId == null) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Selecciona un tipo de documento.')),
+        const SnackBar(
+          content: Text(
+            'Faltan parámetros por defecto del usuario para crear pedidos.',
+          ),
+        ),
       );
       return;
     }
@@ -510,7 +417,9 @@ class _OrderHeaderViewState extends State<OrderHeaderView> {
     } else {
       if (_vm.selectedBodegaId == null) {
         messenger.showSnackBar(
-          const SnackBar(content: Text('Selecciona una bodega.')),
+          const SnackBar(
+            content: Text('No hay bodega por defecto para este usuario.'),
+          ),
         );
         return;
       }
