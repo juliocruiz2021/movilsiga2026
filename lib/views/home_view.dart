@@ -4,12 +4,14 @@ import 'package:provider/provider.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/connectivity_viewmodel.dart';
 import '../viewmodels/products_viewmodel.dart';
+import '../viewmodels/settings_viewmodel.dart';
 import '../utils/debug_tools.dart';
 import 'clients_view.dart';
 import 'login_view.dart';
 import 'orders_view.dart';
 import 'products_view.dart';
 import 'settings_view.dart';
+import 'user_profile_view.dart';
 import 'widgets/app_themed_background.dart';
 import 'widgets/main_navigation_drawer.dart';
 import 'widgets/offline_cloud_icon.dart';
@@ -51,6 +53,7 @@ class _HomeViewState extends State<HomeView> {
       drawer: MainNavigationDrawer(
         selectedIndex: _selectedIndex,
         onDestinationSelected: _onDestinationSelected,
+        onOpenProfile: _openProfile,
         onOpenSettings: _openSettings,
         onLogout: _logout,
       ),
@@ -111,6 +114,18 @@ class _HomeViewState extends State<HomeView> {
     Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => const SettingsView()));
+  }
+
+  void _openProfile() {
+    Navigator.of(context).pop();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => UserProfileView(
+          settings: context.read<SettingsViewModel>(),
+          auth: context.read<AuthViewModel>(),
+        ),
+      ),
+    );
   }
 
   Future<void> _logout() async {

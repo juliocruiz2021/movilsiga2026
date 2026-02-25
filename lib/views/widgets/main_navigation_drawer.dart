@@ -17,6 +17,7 @@ class MainNavigationDrawer extends StatelessWidget {
     super.key,
     required this.selectedIndex,
     required this.onDestinationSelected,
+    required this.onOpenProfile,
     required this.onOpenSettings,
     required this.onLogout,
     this.showSuppliers = false,
@@ -24,6 +25,7 @@ class MainNavigationDrawer extends StatelessWidget {
 
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
+  final VoidCallback onOpenProfile;
   final VoidCallback onOpenSettings;
   final VoidCallback onLogout;
   final bool showSuppliers;
@@ -77,6 +79,17 @@ class MainNavigationDrawer extends StatelessWidget {
           label: Text('Productos'),
         ),
         const Divider(height: 24),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: ListTile(
+            leading: const Icon(Icons.person_outline),
+            title: const Text('Mi perfil'),
+            onTap: () {
+              debugTrace('DRAWER', 'Profile tapped');
+              onOpenProfile();
+            },
+          ),
+        ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: ListTile(

@@ -7,9 +7,11 @@ import '../theme/app_theme.dart';
 import '../utils/debug_tools.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../viewmodels/products_viewmodel.dart';
+import '../viewmodels/settings_viewmodel.dart';
 import 'settings_view.dart';
 import 'product_detail_view.dart';
 import 'login_view.dart';
+import 'user_profile_view.dart';
 import 'widgets/app_themed_background.dart';
 import 'widgets/main_navigation_drawer.dart';
 import 'widgets/offline_cloud_icon.dart';
@@ -47,6 +49,18 @@ class _ProductsScaffold extends StatelessWidget {
                 Navigator.of(context).pop();
                 if (index == MainMenuIndex.products) return;
                 _goToHomeSection(context, index);
+              },
+              onOpenProfile: () {
+                debugTrace('NAV', 'Open profile from Products');
+                Navigator.of(context).pop();
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => UserProfileView(
+                      settings: context.read<SettingsViewModel>(),
+                      auth: context.read<AuthViewModel>(),
+                    ),
+                  ),
+                );
               },
               onOpenSettings: () {
                 debugTrace('NAV', 'Open settings from Products');

@@ -668,3 +668,20 @@ Notas:
 - Mensajería de validación en encabezado actualizada para indicar ausencia de parámetros por defecto cuando falten datos base.
 - Validación técnica:
   - `flutter analyze` sobre archivos modificados en verde.
+
+### 2026-02-25 (mi perfil operativo post-login)
+- Se implementa nueva ventana **Mi perfil operativo** para usuario autenticado, accesible desde el menu lateral (`MainNavigationDrawer`) en Home y Productos.
+- La ventana permite configurar y guardar defaults de:
+  - `sucursal`
+  - `punto de venta`
+  - `centro de costo`
+  - `bodega`
+  - `vendedor`
+- Se agrega `UserProfileViewModel` para:
+  - cargar perfil actual desde API (`GET /api/{empresa}/perfil`),
+  - cargar catálogos relacionados con paginación,
+  - recalcular `punto de venta` y `bodega` cuando cambia sucursal,
+  - guardar cambios al backend (`PATCH /api/{empresa}/perfil`).
+- Al guardar exitosamente, el app actualiza `AuthViewModel` en memoria/storage con los nuevos defaults, para que pedidos nuevos tomen inmediatamente esos valores.
+- Validación técnica:
+  - `flutter analyze` en archivos modificados en verde.
